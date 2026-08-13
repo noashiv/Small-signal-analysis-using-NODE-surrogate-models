@@ -1,0 +1,621 @@
+inj
+ATL1a
+
+%data
+Sb                              ! base power of the unit
+Sbs                             ! base power of the system
+vdc_star                        ! DC link voltage reference
+pf                              ! setpoint for power factor at the terminal
+tau                             ! Pll time constant
+Vminpll                         ! PLL freezing voltage, PLL freezes below this value
+tau_f                           ! filter constant for frequency
+kp_v                            ! DC link voltage control parameters
+ki_v
+kp_c                            ! rectifier current control parameters
+ki_c
+kp_p                            ! power control parameters
+ki_p
+kp_w                            ! motor speed control parameters
+ki_w
+w_cc                            ! motor current control bandwidth
+rt                              ! terminal impedance
+lt
+cdc                             ! DC link capacitance
+kw                              ! speed/torque control constant
+kT                              ! motor torque constant
+ra                              ! motor anchor/stator resistance
+H                               ! motor inertia
+b                               ! motor friction coefficient
+Tnm                             ! compressor torque at nominal speed
+iF                              ! motor field current, equal to 0 in case of BLDC and PMSM
+wm_min                          ! limits on rotational speed
+wm_max
+Vmax                            ! voltage range during which unit needs to stay connected
+Vmin
+Vint                    
+Vr
+tLVRT1
+tLVRT2
+tLVRTint
+Vtrip
+fmin                            ! frequency control regime
+fmax
+Trocof                          ! delay for ROCOF measurement
+dfmax                           ! maximum permissable ROCOF
+VPmin                           ! power limit below 0.9 pu of Voltage
+VPmax                           ! power limit above 0.93 pu voltage
+LVRT                            ! enable or disable LVRT
+Tm                              ! measurement delay
+fdbdn
+fdbup
+fpmax                           ! frequency at which maximum consumption power is required
+fpmin                           ! frequency at which minimum power consumption is required
+protection                      ! Flag for protection, -1 for off, 1 for on
+support                         ! Flag for grid support, -1 for off, 1 for on
+
+%parameters
+
+w0 = 1
+wb = 2*pi*fnom
+t2 = 0                          ! Torque polynomial parameters, set to constant torque
+t1 = 0
+t0 = 1
+
+Tlim = 0.01
+Downlim = -9999
+Downlimdisc = 0
+UplimdeltaP = 9999
+DownlimdeltaP = -9999
+Uplimdis = 0
+downlimdis = -9999
+
+
+theta0 = atan([vy]/[vx])
+P0 = ([vx]*[ix]+[vy]*[iy])                                                      ! initial active power 
+Q0 = [vy]*[ix]-[vx]*[iy]                                                        ! initial reactive power
+P0_unit = -{P0}*{Sbs}/{Sb}
+Q0_unit = -{Q0}*{Sbs}/{Sb}
+V0 = dsqrt([vx]**2+[vy]**2)                                                     ! initial voltage magnitude at bus
+iP0 =  (-[ix]*cos({theta0})-[iy]*sin({theta0}))*{Sbs}/{Sb}                      ! current alignment
+iQ0 =  (-[ix]*sin({theta0})+[iy]*cos({theta0}))*{Sbs}/{Sb}
+vd0 = [vx]*cos({theta0})+[vy]*sin({theta0})                                     ! voltage alignment
+vq0 = [vx]*sin({theta0})-[vy]*cos({theta0})
+md0 = 1/{vdc_star}*({vd0}+{lt}*{w0}*{iQ0}-{rt}*{iP0})                            ! modulation indices
+mq0 = 1/{vdc_star}*({vq0}-{lt}*{w0}*{iP0}-{rt}*{iQ0})
+idc0 = {md0}*{iP0}+{mq0}*{iQ0}                                                  ! DC link current
+iT0 = {Tnm}*{kT}/(2*{kT}**2+2*{ra}*{b}) + dsqrt(({Tnm}*{kT}/(2*{kT}**2+2*{ra}*{b}))**2-({ra}*{b}*{iF}**2-{b}*{idc0}*{vdc_star})/({kT}**2+{ra}*{b}))
+wm0 = 1/{b}*({kT}*{iT0}-{Tnm})
+Te0 = {iT0}*{kT}
+Tc0 = {Tnm}
+
+
+%states
+vd = {vd0}
+vq = {vq0}
+theta = {theta0}
+vdc_ref ={vdc_star}
+V = {V0}
+vxm = [vx]
+vym = [vy]
+Vm = {V0}
+iP =  {iP0}
+diP = 0
+iQ =  {iQ0}
+diQ = 0
+P = {P0}
+dp = 0
+Punit = {P0_unit}
+Q = {Q0}
+Qunit = {Q0_unit}
+Pref_lim = {P0_unit}          ! limited P reference
+dw_pll = 0
+dw_pllf = 0
+deltaf = 0
+w_pll = {wb}
+f = fnom
+fi = fnom
+vdc = {vdc_star}
+dvdc = 0
+iP_ref = {iP0}
+Plim = {VPmax}
+Plimin = {VPmax}
+iQ_ref = {iQ0}
+mdr = {lt}/{vdc_star}*{iQ0}*{w0}-{md0}
+mqr = -{lt}/{vdc_star}*{iP0}*{w0}-{mq0}
+md = {md0}
+mq = {mq0}
+dvd = {iP0}*{rt}
+dvq = {iQ0}*{rt}
+idc = {idc0}
+didc = {md0}*{iP0}+{mq0}*{iQ0}-{idc0}
+wm_ref = {wm0}
+wm_ref_lim = {wm0}
+wm_ref_lim_in = {wm0}
+iT_ref = {iT0}
+iT = {iT0}
+dwm = 0
+wm = {wm0}
+Te = {kT}*{iT0}
+dT = {kT}*{iT0}-{Tc0}
+F_pll = 1
+dv_pll = {V0}-{Vminpll}
+deltafvh =  {V0}-{Vmax}
+z1 = 0
+Fvhi = 1
+Fvh = 1
+iPs = {iP0}
+iQs = {iQ0}
+Pref = {P0_unit}
+x10 = -{V0}
+z=0
+Fvl = 1
+Fvli = 1
+deltafl = [f] - {fmin}
+Ffl = 1
+Ffli = 1
+deltafh = {fmax} - [f]
+Ffh = 1
+Ffhi = 1
+rocof = 0
+abrocof = 0
+deltarocof  = {dfmax} - 0
+Ffri = 1
+Ffr = 1
+Plim_min = -0.00001
+w1 = 0
+w2 = 0
+dPupi = 0
+dPup = 0
+dPdni = 0
+dPdn = 0
+dP = 0
+status  = 1             ! status of the device, 1 for on
+p1 = {protection}
+p2 = 1
+p3 = 1
+s1 = {support}
+s2 = {wm0}
+one = 1
+zero = 0
+
+%observables
+iP
+iQ
+ix
+iy
+vd
+vq
+P
+Punit
+Pref_lim
+Q
+f
+wm
+wm_ref
+dwm
+dp
+status
+rocof
+Plim
+dPdn
+dPup
+iT
+
+%models
+
+& algeq                                             ! voltage magnitude
+dsqrt([vx]**2+[vy]**2) - [V] 
+
+& tf1p
+V
+Vm
+1.
+{Tm}
+& tf1p
+vx
+vxm
+1.
+{Tm}
+& tf1p
+vy
+vym
+1.
+{Tm}
+
+& algeq                                             ! voltage alignment         
+-[vd] + [vxm]*cos([theta])+[vym]*sin([theta])
+& algeq
+-[vq] - [vxm]*sin([theta])+[vym]*cos([theta])
+
+
+& algeq                                             ! compute ix
+-[ix] + (-[iPs]*cos([theta])-[iQs]*sin([theta]))*{Sb}/{Sbs}
+& algeq                                             ! compute iy
+-[iy] + (-[iPs]*sin([theta])+[iQs]*cos([theta]))*{Sb}/{Sbs}
+
+& algeq
+-[iPs] + [iP]*[status]
+
+& algeq
+-[iQs] + [iQ]*[status]
+
+
+& algeq                                             ! compute powers
+-[P]*{Sbs}/{Sb} -[Punit]                            ! + [ix]*[vx]+[iy]*[vy]
+& algeq             
+-[Q]*{Sbs}/{Sb} - [Qunit]                           ! -[vx]*[iy] + [vy]*[ix]
+
+
+& algeq                                             ! compute powers
+-[Punit] + [vd]*[iPs] + [vq]*[iQs]                              ! - [P]*{Sbs}/{Sb}
+& algeq             
+-[Qunit] + [vd]*[iQs] - [vq]*[iPs]                              ! - [Q]*{Sbs}/{Sb}
+
+
+
+& int                                               ! voltage alignment angle, PLL angle
+dw_pllf
+theta
+1.d0
+& pictl                                             ! PLL
+vq
+w_pll
+0.1/({tau}*0.001)**2
+0.5/({tau}*0.001)
+
+& algeq                                             ! frequency deviation
+[dw_pll] - [w_pll] + [omega]*{wb}
+
+& algeq
+[dw_pllf] -[dw_pll]*[F_pll]
+
+& algeq                                             ! compute and filter frequency
+-[fi]+[w_pll]/{wb}*fnom
+& tf1p
+fi
+f
+1.
+{tau_f}
+
+
+& algeq                                             ! PLL freezing 
+-[dv_pll] + [Vm]-{Vminpll}
+
+& swsign
+one
+zero
+dv_pll
+F_pll                   
+
+& algeq 
+-[vdc_ref] + {vdc_star}
+
+& algeq                                             ! DC voltage control
+-[dvdc] + [vdc_ref] - [vdc]
+
+& pictl             
+dvdc
+iP_ref
+{ki_v}
+{kp_v}
+
+& algeq                                             ! p-axis current control
+-[diP] + [iP_ref]*[status] -[iP]
+& pictl    
+diP
+mdr
+{ki_c}
+{kp_c}
+
+& algeq                                             ! q-axis current control
+-[iQ_ref]                                           ! + [iP_ref]*dsqrt(1-{pf})*[status]
+& algeq             
+-[diQ] + [iQ_ref]*[status] -[iQ]
+& pictl     
+diQ
+mqr
+{ki_c}
+{kp_c}
+
+& algeq                                             ! md
+-[md] + (-[mdr] + {lt}/max(1.d-3,{vdc_star})*[f]/fnom*[iQ])
+& algeq                                             ! mq
+-[mq] + (-[mqr] - {lt}/max(1.d-3,{vdc_star})*[f]/fnom*[iP])
+
+& algeq                                             ! voltage over d-axis terminal impedance
+-[dvd] + [vd] - [md] * [vdc] + {lt}*[omega]*[iQ]
+& algeq                                             ! voltage over q-axis terminal impedance
+-[dvq] + [vq] - [mq] * [vdc] - {lt}*[omega]*[iP]
+
+& tf1p                                              ! d-axis current
+dvd
+iP
+1/{rt}
+{lt}/({wb}*{rt})
+& tf1p                                              ! q-axis current
+dvq
+iQ
+1/{rt}
+{lt}/({wb}*{rt})
+
+& algeq                                             ! DC link current
+-[idc] + [status]*([wm]*{kT}*[iT] + {ra}*[iT]**2) / max(1.d-3,[vdc])
+
+& algeq                                             ! DC link
+-[didc]+[md]*[iP]+[mq]*[iQ]-[idc]
+
+& int                                               ! DC link voltage
+didc
+vdc
+{cdc}/{wb}
+
+
+& limvb                                              ! power limiter
+Pref
+Plim_min
+Plim
+Pref_lim
+
+
+& algeq                                             ! power mismatch
+-[dp] + [Pref_lim]-[Punit]
+
+& pictl                                             ! power control
+dp
+wm_ref
+{ki_p}
+{kp_p}
+
+
+& lim                                               ! limit speed control input
+wm_ref
+wm_ref_lim_in
+{wm_min}
+{wm_max}
+
+
+& algeq                                             ! speed control input
+-[dwm] + {kw}*([status]*[wm_ref_lim]-[wm])
+
+& pictl                                             ! speed control
+dwm
+iT_ref
+ki_w
+kp_w
+
+
+& tf1p                                              ! motor current control
+iT_ref
+iT
+1
+1/{w_cc}
+
+
+& algeq                                             ! torque equations
+-[Te] + {kT}*[iT]
+& algeq
+-[dT] + [Te]-[status]*{Tc0}
+
+& tf1p                                              ! motor inertia
+dT
+wm
+1/{b}
+2*{H}/{b}
+
+
+& algeq
+[deltafvh] - [Vm] +{Vmax}
+
+& pwlin4                                            ! Overvoltage Protection                 
+deltafvh
+z1
+-999
+0.
+0.
+0.
+0.
+1.
+999
+1.
+& algeq 
+[Fvhi] -1 + [z1] 
+& hyst
+Fvhi
+Fvh
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+
+& algeq                                             ! LVRT                               
+[Vm] + [x10]   
+& timer5                       
+x10
+z
+-{Vr}
+{tLVRT2}
+-({LVRT}*{Vint} + (1-{LVRT})*{Vtrip})
+{tLVRTint}
+-({LVRT}*{Vint} + (1-{LVRT})*{Vtrip})
+{tLVRT1}
+-({LVRT}*{Vmin} + (1-{LVRT})*{Vtrip})
+{tLVRT1}
+-({LVRT}*{Vmin} + (1-{LVRT})*{Vtrip})
+0.
+
+& algeq 
+[Fvli] -1 + [z] 
+
+& hyst                             
+Fvli
+Fvl
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+
+& algeq                         ! status variable that can switch the entire unit on or off
+[p2] - [Fvh]*[Fvl]*[Ffl]*[Ffh]*[Ffr]
+
+& algeq
+[p1] - {protection}
+& algeq
+[p3] - 1
+
+& swsign
+p2
+p3
+p1
+status
+
+
+& algeq                     ! switch support on and off
+[s1] - {support}
+& algeq
+[s2] - {wm0}
+
+& swsign
+wm_ref_lim_in
+s2
+s1
+wm_ref_lim
+
+
+& algeq                     ! underfrequency protection
+[deltafl] - [f] + {fmin}
+& swsign
+one
+zero
+deltafl
+Ffli
+& hyst
+Ffli
+Ffl
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+& algeq                 !  overfrequency protection
+[deltafh] - {fmax} + [f]
+& swsign
+one
+zero
+deltafh
+Ffhi
+& hyst
+Ffhi
+Ffh
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+
+
+& algeq                ! frequency deviation in Hz
+-[deltaf] + [f]-fnom
+
+& tfder1p               ! Rocof measurement in Hz/s
+deltaf
+rocof
+1/{Trocof}
+{Trocof}
+
+& abs
+rocof
+abrocof
+
+& algeq              ! Rocof protection
+-[deltarocof] +{dfmax} -[abrocof]
+& swsign
+one
+zero
+deltarocof
+Ffri
+& hyst
+Ffri
+Ffr
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+
+& pwlin4            ! limit active power during undervoltage
+Vm
+Plimin
+0
+{VPmin}
+0.9
+{VPmin}
+0.93
+{VPmax}
+1.5
+{VPmax}
+
+& algeq
+[Plim_min]+0.00001
+
+& tf1p2lim
+Plimin
+Plim
+1
+{Tlim}
+{VPmin}
+{VPmax}
+{DownlimdeltaP}
+{UplimdeltaP}
+
+& algeq         ! Frequency droop control
+-[w1] + [f]/fnom-1.d0
+& db            ! frequency deadband in pu
+w1
+w2
+{fdbdn}
+0.
+1.
+{fdbup}
+0.
+1.
+
+& algeq         ! compute unlimited power change during overfrequency
+-[dPupi] + ([w2]*fnom)/({fpmax}-fnom)*({VPmax}-{P0_unit})
+
+& lim           ! limit power change
+dPupi
+dPup
+0.0000000001
+{VPmax}-{P0_unit}
+
+& algeq         ! compute unlimited power change during underfrequency
+-[dPdni] + ([w2]*fnom)/(fnom-{fpmin})*({P0_unit}-{VPmin})
+
+& lim           ! limit power change
+dPdni
+dPdn
+-{P0_unit}
+-0.00000001
+
+& algeq
+[dP] - [dPup]-[dPdn]
+
+& algeq
+- [Pref] +  [status]*({P0_unit} +[dP])
+
+& algeq
+[one] -1
+& algeq
+[zero]

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioProject ProjectType="typeDynamicLibrary" ProjectCreator="Intel Fortran" Keyword="Dll" Version="11.0" ProjectIdGuid="{DF5611A2-D438-4333-90E0-4C44F3651E31}">
+	<Platforms>
+		<Platform Name="Win32"/>
+		<Platform Name="x64"/>
+	</Platforms>
+	<Configurations>
+		<Configuration Name="Debug|Win32" UseCompiler="ifortCompiler" ConfigurationType="typeDynamicLibrary">
+			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" WarnInterfaces="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+			<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemWindows" LinkDLL="true"/>
+			<Tool Name="VFResourceCompilerTool"/>
+			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
+		</Configuration>
+		<Configuration Name="Release|Win32" UseCompiler="ifortCompiler" ConfigurationType="typeDynamicLibrary">
+			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" RuntimeLibrary="rtMultiThreadedDLL"/>
+			<Tool Name="VFLinkerTool" SuppressStartupBanner="true" SubSystem="subSystemWindows" LinkDLL="true"/>
+			<Tool Name="VFResourceCompilerTool"/>
+			<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
+		</Configuration>
+		<Configuration Name="Debug|x64" UseCompiler="ifortCompiler" ConfigurationType="typeDynamicLibrary">
+			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" WarnInterfaces="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+			<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemWindows" LinkDLL="true"/>
+			<Tool Name="VFResourceCompilerTool"/>
+			<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
+		</Configuration>
+		<Configuration Name="Release|x64" UseCompiler="ifortCompiler" OutputDirectory=".\Release_intel_w64" IntermediateDirectory=".\Release_intel_w64\objdll" TargetName="ramses" ConfigurationType="typeDynamicLibrary">
+			<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" BufferedIO="true" Preprocess="preprocessYes" AdditionalIncludeDirectories=".\modules" DefaultIncAndUsePath="defaultIncludeCurrent" PreprocessorDefinitions="DLL;" EnableRecursion="true" OpenMP="OpenMPParallelCode" Diagnostics="diagnosticsShowAll" BuildDependencies="true" EmitBuildDependencies="true" Traceback="true" RuntimeChecks="rtChecksNone" UseMkl="mklSequential"/>
+			<Tool Name="VFLinkerTool" AdditionalOptions=" mkl_intel_lp64.lib mkl_core.lib mkl_sequential.lib" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" AdditionalLibraryDirectories=".\modules" SubSystem="subSystemConsole" StackReserveSize="700000000" StackCommitSize="700000000" LargeAddressAware="addrAwareLarge" LinkDLL="true" InterproceduralOptimizations="false" AdditionalDependencies="&quot;libramses.lib&quot;"/>
+			<Tool Name="VFResourceCompilerTool"/>
+			<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
+			<Tool Name="VFCustomBuildTool"/>
+			<Tool Name="VFPreLinkEventTool"/>
+			<Tool Name="VFPreBuildEventTool"/>
+			<Tool Name="VFPostBuildEventTool"/>
+			<Tool Name="VFManifestTool" SuppressStartupBanner="true"/>
+		</Configuration>
+	</Configurations>
+	<Files>
+		<Filter Name="my_models">
+		<File RelativePath=".\my_models\exc_AC1A.f90"/>
+		<File RelativePath="..\..\code gen\exc_AC1A_IEEEST.f90"/>
+		<File RelativePath=".\my_models\exc_ENTSOE_lim.f90"/>
+		<File RelativePath=".\my_models\exc_GENERIC3.f90"/>
+		<File RelativePath="..\URAMSES\URAMSES\my_models\exc_ST1A.f90"/>
+		<File RelativePath="..\..\code gen\exc_ST1A_IEEEST.f90"/>
+		<File RelativePath=".\my_models\inj_AIR_COND1_mod.f90"/>
+		<File RelativePath=".\my_models\inj_ATL.f90"/>
+		<File RelativePath=".\my_models\inj_ATL1.f90"/>
+		<File RelativePath=".\my_models\inj_ATL1a.f90"/>
+		<File RelativePath=".\my_models\inj_BESS2.f90"/>
+		<File RelativePath=".\my_models\inj_BESS3.f90"/>
+		<File RelativePath=".\my_models\inj_BESS3a.f90"/>
+		<File RelativePath=".\my_models\inj_IBG22.f90"/>
+		<File RelativePath=".\my_models\inj_IBG22h.f90"/>
+		<File RelativePath=".\my_models\inj_IBG22r.f90"/>
+		<File RelativePath=".\my_models\inj_IBG22ra.f90"/>
+		<File RelativePath=".\my_models\inj_IBG22rl.f90"/>
+		<File RelativePath=".\my_models\inj_IBG3.f90"/>
+		<File RelativePath=".\my_models\inj_IBG3a.f90"/>
+		<File RelativePath=".\my_models\inj_IBG3i.f90"/>
+		<File RelativePath=".\my_models\inj_IBG3l.f90"/>
+		<File RelativePath=".\my_models\inj_IBG3s.f90"/>
+		<File RelativePath=".\my_models\inj_LinReg.f90"/>
+		<File RelativePath=".\my_models\inj_LinReg1.f90"/>
+		<File RelativePath=".\my_models\inj_LinReg_noScale.f90"/>
+		<File RelativePath=".\my_models\inj_LinRegS.f90"/>
+		<File RelativePath=".\my_models\inj_PQ_inj.f90"/>
+		<File RelativePath="..\..\code gen\inj_SVC.f90"/>
+		<File RelativePath=".\my_models\tor_DEGOV1.f90"/>
+		<File RelativePath=".\my_models\tor_ENTSOE_simp.f90"/>
+		<File RelativePath=".\my_models\tor_TGOV1D.f90"/></Filter>
+		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
+		<File RelativePath=".\src\c_interface.f90"/>
+		<File RelativePath=".\src\FUNCTIONS_IN_MODELS.f90"/>
+		<File RelativePath=".\src\usr_dctl_models.f90"/>
+		<File RelativePath=".\src\usr_exc_models.f90"/>
+		<File RelativePath=".\src\usr_inj_models.f90"/>
+		<File RelativePath=".\src\usr_tor_models.f90"/>
+		<File RelativePath=".\src\usr_twop_models.f90"/></Filter>
+	</Files>
+	<Globals/>
+</VisualStudioProject>

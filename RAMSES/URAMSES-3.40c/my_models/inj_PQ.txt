@@ -1,0 +1,49 @@
+inj
+PQ_inj
+
+%data
+
+Tout       ! small "output" time constant for driving the currents (recommend: 0.01)
+
+%parameters
+
+P0 = [vx]*[ix]+[vy]*[iy]                                                          ! initial active power 
+Q0 = [vy]*[ix]-[vx]*[iy]                                                          ! initial reactive power
+Vo = dsqrt([vx]**2+[vy]**2)                                                       ! initial voltage magnitude at bus
+
+
+%states
+
+Ixset = [ix]
+Iyset = [iy]
+P = {P0}
+Q = {Q0}
+V = {Vo}          ! Voltage magnitude
+
+%observables
+
+P
+Q
+
+%models
+
+& algeq         ! voltage magnitube
+dsqrt([vx]**2+[vy]**2) - [V] 
+& tf1p          ! small "output" time constant for driving the currents
+Ixset
+ix
+1.
+Tout
+& tf1p          ! small "output" time constant for driving the currents
+Iyset
+iy
+1.
+Tout
+& algeq         ! ix component of injected current
+([P]*[vx] + [Q]*[vy])/max([V]**2,1.d-02) -[Ixset]
+& algeq         ! iy component of injected current
+([P]*[vy] - [Q]*[vx])/max([V]**2,1.d-02) -[Iyset]
+& algeq         ! set P to Pref
+[P] - {P0}
+& algeq         ! set Q to Qref
+[Q] - {Q0}

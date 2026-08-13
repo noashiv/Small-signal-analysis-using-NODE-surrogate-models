@@ -1,0 +1,62 @@
+COMMENTS FROM DATA FILES:
+
+
+
+
+
+SOLVER SETTINGS :
+   Using fully decomposed Scheme
+   Updating Jacobian only locally, whenever possible
+   Skipping Newton solution of converged components
+   Using COI reference frame
+   Variation of x in Jacobian computation : max( 0.1000E-04 |x|, 0.1000E-04)
+   Tolerance on network equations in pu (system base) :  0.1000E-04 pu
+   Tolerance on injector equations (absolute, relative) :  0.1000E-04 pu,  0.1000E-04 pu
+
+
+EXTRACTED RECORDS:
+
+    2 buses extracted from records
+    1 branches extracted from records
+    0 synchronous machines extracted from records
+       for a total of      0 continuous time states
+                           0 discrete exciter states
+                           0 exciter parameters
+                           0 discrete torque states
+                           0 torque parameters
+    0 user-defined two-ports extracted from records
+    5 user-defined injectors extracted from records
+       for a total of    116 continuous time states
+                          37 discrete states
+                          85 parameters
+    1 impedance loads extracted from records or created from mismatches
+    0 discrete controllers extracted from records
+
+NUMBER OF ISLANDS :    1
+
+     2 buses in island #     1 (includes a Thevenin equivalent)
+
+NUMBER OF SHUNTS :     0  (B_ type:     0)
+
+
+NUMBER OF SYNCHRONOUS MACHINES :    0
+
+
+NUMBER OF INJECTORS :        5
+
+model name         injector name        at bus                  V            P            Q
+
+THEVEQ               inf_bus              N0                  1.0000      0.19000      0.06686
+LOAD                 L1                   N1                  0.9922     -0.20000     -0.00001
+IBG3i                PV1                  N1                  0.9922      0.02800     -0.07627
+PQ                   L0                   N0                  1.0000      0.00000      0.00000
+VFAULT               VFAULT               N0                  1.0000      0.00000      0.00000
+
+NUMBER OF TWO-PORTS :        0
+
+
+NUMBER OF IMPEDANCE LOADS :     1  (M_ type:     1 )
+
+load name              bus name                  P          Q
+
+M_N1                   N1                       0.018     -0.014

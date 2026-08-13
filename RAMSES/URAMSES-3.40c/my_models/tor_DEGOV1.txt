@@ -1,0 +1,102 @@
+tor
+DEGOV1
+
+%data
+
+SWM
+T1
+T2
+T3
+K
+T4
+T5
+T6
+TMIN
+TMAX
+TD
+R
+TE
+
+
+%parameters
+
+V60 = ((1.d0-{SWM})*[tm])+({SWM}*[p])
+REF = {V60}*{R}
+
+
+%states
+
+V4b = 0.d0
+V4a = [V4b]
+V3  = [V4a]
+V2  = -[V3]
+V4  = [tm]
+V5  = [p]
+V6  = {V60}
+Pm  = [tm]
+SW  = {SWM}-0.5d0
+
+%observables
+
+V2 
+V3
+V4a 
+V4 
+V5
+V6
+Pm
+
+%models
+
+& algeq
+[V2]+{R}*[V6]-{REF}+[omega]-1.d0
+& tf2p2z							Electrical control/Governor
+V2
+V3
+1.d0
+{T3}
+0.d0
+{T1}
+{T1}*{T2}
+& tf1p1z							Fuel injection system/Actuator
+V3
+V4a
+{K}
+{T4}
+{T6}
+& tf1p
+V4a
+V4b
+1.d0
+{T5}
+& inlim
+V4b
+V4
+1.d0
+{TMIN}
+{TMAX}
+& tf1p
+p
+V5
+1.d0
+{TE}
+& algeq
+[SW]-{SWM}+0.5d0
+& swsign
+V5
+V4
+SW
+V6
+& tf2p2z							Engine dead time
+V4
+tm
+1.d0
+-0.5*{TD}
+0.0833*{TD}*{TD}
+0.5*{TD}
+0.0833*{TD}*{TD}
+& algeq
+[Pm]-[tm]*[omega]
+
+   
+

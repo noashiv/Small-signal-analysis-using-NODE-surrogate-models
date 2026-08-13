@@ -1,0 +1,610 @@
+inj
+IBG3a
+
+%data 
+       
+PMPP
+PN
+Iprate
+Tg
+Tm
+tLVRT1
+tLVRT2
+tLVRTint
+Vmax
+tau              ! response time of the PLL in milliseconds
+Vminpll          ! Voltage magnitude under which the PLL is blocked
+a 		 ! Vr		
+Vmin
+Vint
+fmin
+fmax
+Trv                  ! Time after which units are allowed to reconnect to the network
+Trf                  ! Time after which units reconnect after frequency protection was triggered
+Re 
+Xe
+CM1
+kRCI
+kRCA
+m
+n
+dbmin
+dbmax
+HVRT  
+LVRT
+CM2   
+Vtrip
+fdbup
+fdbdn
+Trocof
+dfmax
+
+
+
+%parameters
+IN = {PN}
+vxlv = [vx] + {Re}*[ix] - {Xe}*[iy]
+vylv = [vy] + {Re}*[iy] + {Xe}*[ix]
+Vref = dsqrt({vxlv}**2 + {vylv}**2)
+Pext = -{vxlv}*[ix]-{vylv}*[iy]
+Qext = +{vxlv}*[iy]-{vylv}*[ix]
+Iqref = -{Qext}/{Vref}
+Ipref = -{Pext}/{Vref}
+kpll = 10/({tau}*0.001)
+theta_PLL = atan({vylv}/{vxlv})
+Uplim = 9999
+Downlim = -9999
+Downlimdisc = 0
+UplimdeltaP = 9999
+DownlimdeltaP = 0
+Tlim = 0.01
+Uplimdis = 0
+downlimdis = -9999
+ratemax = {Iprate}*{IN}
+rate = 0.5
+rateh = 0.5
+fref = 1
+Snom = {IN}*sbase
+
+%states
+
+vxl = {vxlv}
+vyl = {vylv}
+Vt = {Vref}
+PLLPhaseAngle = {theta_PLL}
+Vm = {Vref}
+x2 = {Vref}
+Ip = {Ipref}
+Iq = {Iqref}
+Ipcmd = {Ipref}
+Iqcmd = {Iqref}
+Iqmax = dsqrt({IN}**2 - {Ipref}**2 )
+Iqmin = - dsqrt({IN}**2 - {Ipref}**2 )
+Ipmaxi = {IN}
+Ipmax = min({IN},{PMPP}/{Vref})
+Ipmin = -0.001
+x4 = {Ipref}
+DeltaW = 0
+DeltaWf =  0
+vq = -{vxlv}*sin({theta_PLL}) + {vylv}*cos({theta_PLL})
+vd = {vxlv}*cos({theta_PLL}) + {vylv}*sin({theta_PLL}) 
+Pgen = -{Pext}
+Qgen = -{Qext}
+Iqext = 0
+Fvl = 1
+Fvli = 1
+  
+z1 = 0.    
+x5 = {Iqref}   
+Iptemp = {Ipref}
+Iqtemp = {Iqref}
+x10 = -{Vref}  
+x11 = {Vref} - {Vmax}
+z = 0. 
+deltaV = {Vref} - {dbmin}
+Pflag = 1
+vxlm = {vxlv}
+vylm = {vylv}
+omegam = -0.5*({vxlv}*sin({theta_PLL}) - {vylv}*cos({theta_PLL})) + 1
+fm = 50*(-0.5*({vxlv}*sin({theta_PLL}) - {vylv}*cos({theta_PLL})) + 1)  
+fmfilt = 50*(-0.5*({vxlv}*sin({theta_PLL}) - {vylv}*cos({theta_PLL})) + 1)
+Ffli = 1.                                                                                                               ! Current multiplier (input of hysteresis)
+Ffl = 1. 
+Ffhi = 1.
+Ffh = 1.   
+Ptot = -{Pext}
+deltafl = 50*[omega] - {fmin}
+deltafh = {fmax} - 50*[omega] 
+mult = 1
+deltaVPLL = {Vref} - {Vminpll}
+wpll = -({vxlv}*sin({theta_PLL}) - {vylv}*cos({theta_PLL}))*{kpll} + 2*pi*50 
+g = 0
+tr = 0
+Fr = 1
+Frtemp = 1
+fvlb = 1
+deltafvl = -{Trv}
+g1 = 1
+tr1=0
+Frvh = 1
+Frvhtemp = 1
+fvhb = 1
+deltafvh = -{Trv}
+g2 = 0
+tr2 = 0
+Frfl = 1
+Frfltemp = 1
+fflb = 1
+deltaffl = -{Trf}
+g3 = 0
+tr3 = 0
+Frfh = 1
+Frfhtemp = 1
+ffhb = 1
+deltaffh = -{Trf}
+w1 = 0
+w2 = 0
+Frvhtemp1=1
+one = 1
+zero = 0
+status = 1
+deltaf = 0
+rocof = 0
+abrocof = 0
+deltarocof  = {dfmax} - 0
+Ffri = 1
+Ffr = 1
+g4 = 0
+tr4 = 0
+deltaffr = 0.25
+dPupi = 0
+dPup = 0
+dPdni = 0
+dPdn = 0
+dP = 0
+
+
+%observables
+
+Ip 
+Iq
+Pgen
+Qgen
+Vm
+PLLPhaseAngle
+fm
+fmfilt
+Fr
+status
+Frfh
+Frfl
+Ipcmd
+Vt
+wpll
+vq
+rocof
+Ffr
+Ffl
+Ffh
+Pflag
+
+
+%models
+
+& algeq
+-[status] + [Fr]*[Frvh]*[Frfl]*[Frfh]*[Ffr]
+
+& algeq
+[one]-1
+& algeq
+[zero]
+
+& algeq             ! voltage drop over line that connects PV, vxl is after impedance
+[vx] + {Re}*[ix] - {Xe}*[iy] - [vxl]
+& algeq
+[vy] + {Re}*[iy] + {Xe}*[ix] - [vyl]
+& algeq             ! voltage magnitude at PV
+[Vt] - dsqrt([vxl]**2 + [vyl]**2)
+& tf1p              ! measurement delay of voltage magnitude
+Vt
+Vm
+1.
+{Tm}
+& max1v1c
+Vm
+x2
+0.01
+
+& algeq         ! maximum active current computation
+[Ptot]/[x2] - [x4]
+& algeq         ! minimum current
+[Ipmin] + 0.001
+& limvb         ! limit current Ipcmd
+x4
+Ipmin
+Ipmax
+Ipcmd
+& algeq         ! output current computation, consider protection status
+[Iptemp]*[status] - [Ip]
+& tf1p2lim
+Ipcmd
+Iptemp
+1
+{Tg}
+{Downlim}
+{Uplim}
+{Downlim}
+{ratemax}
+
+
+& algeq 				  ! Active - reactive power priority, compute max and min reactive current                       
+[Iqmax] -[Pflag]*dsqrt(max(0.d0,{IN}**2 - [Ipcmd]**2)) - (1-[Pflag])*({CM2}*{IN}*0.707 + (1-{CM2})*{IN}) 
+& algeq 
+[Iqmin] + [Pflag]*dsqrt(max(0.d0,{IN}**2 - [Ipcmd]**2)) + (1-[Pflag])*{IN} 
+
+& algeq                 ! reactive current computation limit and update
+-[Iqext] + {Iqref} - [x5]
+& limvb
+x5
+Iqmin
+Iqmax
+Iqcmd
+& algeq						!
+[Iqtemp]*[status] - [Iq]
+& tf1p
+Iqcmd
+Iqtemp
+1.
+{Tg}
+
+
+& algeq 				  ! Active - reactive power priority, max active current, converter limit
+[Ipmaxi] - [Pflag]*{IN} -  (1-[Pflag])*dsqrt(max(0.d0,{IN}**2 - [Iqcmd]**2)) 
+
+& algeq 				  ! MPP limit
+- [Ipmax] + min([Ipmaxi], {PMPP}/[Vm])
+
+& db 						! Reactive current injection, voltage support                         
+Vm
+Iqext
+{dbmin}
+-{m}*{IN}*({CM1} + {CM2})
+{kRCI}*{IN}*({CM1} + {CM2} )
+{dbmax}
+{n}*{IN}
+{kRCA}*{IN}*{HVRT}
+
+& algeq   						!  Low voltage ride-through and LV protection flag                   
+[Vm] + [x10]   
+& timer5                       
+x10
+z
+-{a}
+{tLVRT2}
+-({LVRT}*{Vint} + (1-{LVRT})*{Vtrip})
+{tLVRTint}
+-({LVRT}*{Vint} + (1-{LVRT})*{Vtrip})
+{tLVRT1}
+-({LVRT}*{Vmin} + (1-{LVRT})*{Vtrip})
+{tLVRT1}
+-({LVRT}*{Vmin} + (1-{LVRT})*{Vtrip})
+0.
+
+& algeq 		
+[Fvli] -1 + [z] 
+& hyst                             
+Fvli
+Fvl
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+& algeq
+[g] - 1 + [Fvl]
+& inlim
+g
+tr
+1
+0.
+5
+& algeq
+[fvlb] - 1 + [g]
+& algeq
+[deltafvl] + {Trv} - [tr]
+& swsign
+one
+fvlb
+deltafvl
+Frtemp
+& tf1p2lim
+Frtemp
+Fr
+1
+{Tlim}
+{Downlimdisc}
+{Uplim}
+{Downlim}
+{rate}
+
+& algeq								! High voltage ride-through and HV protection flag
+[x11] - [Vm] + {Vmax}
+& pwlin4                           
+x11
+z1
+-999
+0.
+0.
+0.
+0.
+1.
+999
+1.
+
+& inlim
+z1
+tr1
+1
+0.
+5
+
+& algeq
+[g1] - 1 + [z1]
+
+& algeq
+[fvhb] - 1 + [z1]
+
+& algeq
+[deltafvh] + {Trv} - [tr1]
+
+& swsign
+one
+fvhb
+deltafvh
+Frvhtemp
+
+& algeq
+[Frvhtemp1] - [Frvhtemp]*[g1]
+
+& tf1p2lim
+Frvhtemp1
+Frvh
+1
+{Tlim}
+{Downlimdisc}
+{Uplim}
+{Downlim}
+{rateh}
+
+& algeq 						! reactive current priority flag
+[deltaV] - [Vm] + {dbmin}
+& swsign
+one
+zero
+deltaV
+Pflag
+
+
+& algeq                     ! PLL 
+[deltaVPLL] - [Vm] + {Vminpll}
+& swsign
+one
+zero
+deltaVPLL
+mult
+
+& int                               
+DeltaWf
+PLLPhaseAngle
+1.
+& pictl
+vq
+wpll
+0.1/({tau}*0.001)**2
+0.5/({tau}*0.001)
+& algeq
+[DeltaW] - [wpll] + [omega]*2*pi*50
+& algeq
+[DeltaWf] - [DeltaW]*[mult]
+
+& tf1p              ! voltage measurement
+vxl
+vxlm
+1.
+{Tm}
+& tf1p
+vyl
+vylm
+1.
+{Tm}
+
+
+& algeq                     ! filter PLL frequency , convert to Hz
+[omegam] - [wpll]/(2*pi*50)
+& algeq
+[fm] - 50*[omegam]
+& tf1p
+fm
+fmfilt
+1
+0.1
+
+& algeq                         ! frequency protection flag FFl, and FFh
+[deltafl] - [fmfilt] + {fmin}
+& swsign
+one
+zero
+deltafl
+Ffli
+& algeq 
+[deltafh] - {fmax} + [fmfilt]
+& swsign
+one
+zero
+deltafh
+Ffhi
+
+& hyst
+Ffli
+Ffl
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+
+& hyst
+Ffhi
+Ffh
+1.1
+0.
+1.
+0.9
+1.
+0.
+1.
+
+& algeq						       ! Low frequency protection and reconnection
+[g2] - 1 + [Ffl]
+& inlim
+g2
+tr2
+1
+0.
+5
+& algeq
+[fflb] - 1 + [g2]
+& algeq
+[deltaffl] + {Trf} - [tr2]
+& swsign
+one
+fflb
+deltaffl
+Frfltemp
+& tf1p2lim
+Frfltemp
+Frfl
+1
+{Tlim}
+{Downlimdisc}
+{Uplim}
+{Downlim}
+{rateh}
+
+& algeq								! High frequency protection and reconnection
+[g3] - 1 + [Ffh]
+& inlim
+g3
+tr3
+1
+0.
+5
+& algeq
+[ffhb] - 1 + [g3]
+& algeq
+[deltaffh] + {Trf} - [tr3]
+& swsign
+one
+ffhb
+deltaffh
+Frfhtemp
+& tf1p2lim
+Frfhtemp
+Frfh
+1
+{Tlim}
+{Downlimdisc}
+{Uplim}
+{Downlim}
+{rateh}
+
+
+& algeq				! Frequency droop control
+[w1] + ([fmfilt]/50) - {fref}
+& db                ! frequency deadband
+w1
+w2
+{fdbup}
+0.
+1.
+{fdbdn}
+0.
+1.
+
+& algeq       ! compute unlimited power change during underfrequencies
+-[dPupi] + ([w2]*50)/2 * ({Snom} + {Pext})
+
+& lim           ! limit power change during underfrequencies
+dPupi
+dPup
+0.0000000001
+{Snom}+{Pext}
+
+& algeq       ! compute unlimited power change during overfrequency
+-[dPdni] - ([w2]*50)/2 * {Pext}
+
+& lim           ! limit power change during overfrequencies
+dPdni
+dPdn
+{Pext}
+-0.0000000001
+
+& algeq     
+[dP]-[dPup]-[dPdn]
+
+& algeq
+[Ptot]+{Pext}-[dP]
+
+
+& algeq                ! frequency deviation in Hz
+-[deltaf] + [fmfilt]-{fref}*50
+
+& tfder1p               ! Rocof measurement in Hz/s
+deltaf
+rocof
+1/{Trocof}
+{Trocof}
+
+& abs
+rocof
+abrocof
+
+& algeq               ! rocof protection and timer
+-[deltarocof] +{dfmax} -[abrocof]
+& swsign
+one
+zero
+deltarocof
+Ffri
+& algeq
+[g4] - 1 + [Ffri]
+& inlim
+g4
+tr4
+1
+0
+5
+& algeq
+-[deltaffr] + 0.25 - [tr4]
+& swsign
+one
+zero
+deltaffr
+Ffr
+
+& algeq                 ! alignment equations
+[vd] - [vxlm]*cos([PLLPhaseAngle]) - [vylm]*sin([PLLPhaseAngle]) 
+& algeq
+[vq] + [vxlm]*sin([PLLPhaseAngle]) - [vylm]*cos([PLLPhaseAngle]) 
+& algeq
+[Pgen] - [vd]*[Ip]
+& algeq
+[Qgen] - [vd]*[Iq]
+& algeq
+[ix] - [Ip]*cos([PLLPhaseAngle]) - [Iq]*sin([PLLPhaseAngle])
+& algeq
+[iy] - [Ip]*sin([PLLPhaseAngle]) + [Iq]*cos([PLLPhaseAngle])

@@ -1,0 +1,75 @@
+inj
+LinReg
+
+%data
+Tout
+
+
+%parameters
+v0 = dsqrt([vx]**2+[vy]**2)
+w0 = [omega]
+ip0 = ([vx]*[ix]+[vy]*[iy])/{v0}
+iq0 = ([vy]*[ix]-[vx]*[iy])/{v0}
+dw1 = 0 ! Historical
+dv1 = 0 ! Historical 
+dip1 = 0 ! Historical
+diq1 = 0 ! Historical
+
+%states
+V = {v0}
+ipi = {ip0}
+iqi = {iq0}
+ip = {ip0}
+iq = {iq0}
+dw = 0
+dv = 0
+dip = 0
+diq = 0
+
+%observables
+ip
+iq
+
+%models
+& algeq ! Compute V
+[V] - dsqrt([vx]**2+[vy]**2)
+
+& algeq	! Compute dV
+[dv] - (dsqrt([vx]**2+[vy]**2)-{v0})
+
+& algeq ! Compute dw
+- [dw] + ([omega]-{w0})
+
+& algeq                                             ! compute currents from matrix multiplication
+-[ipi] + 0 + {ip0}
+
+& algeq                                             ! compute currents from matrix multiplication
+- [iqi] + 0 + {iq0}
+
+& algeq ! Compute dip
+- [dip] + ip - {ip0}
+
+& algeq ! Compute diq
+- [diq] + iq - {iq0}
+
+
+
+& tf1p          ! small "output" time constant for driving the currents
+ipi
+ip
+1.
+Tout
+
+
+& tf1p          ! small "output" time constant for driving the currents
+iqi
+iq
+1.
+Tout
+
+& algeq						! backtransform
+[V]*[ip] - ([vx]*[ix]+[vy]*[iy])
+& algeq
+[V]*[iq] - ([vy]*[ix]-[vx]*[iy])
+
+

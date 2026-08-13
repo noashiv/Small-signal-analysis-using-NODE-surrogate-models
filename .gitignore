@@ -1,0 +1,17 @@
+# Simulation output
+data/all_simulation_timeseries.csv
+RAMSES/out.trace
+
+# Compiled files
+*.exe
+*.lib
+*.mod
+*.suo
+*.u2d
+
+# Visual Studio / build output
+.vs/
+Debug/
+Release/
+x64/
+x86/

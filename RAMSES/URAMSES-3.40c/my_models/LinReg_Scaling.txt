@@ -1,0 +1,81 @@
+inj
+LinRegS
+
+%data
+Tout
+
+
+%parameters
+v0 = dsqrt([vx]**2+[vy]**2)
+w0 = [omega]
+ip0 = ([vx]*[ix]+[vy]*[iy])/{v0}
+iq0 = ([vy]*[ix]-[vx]*[iy])/{v0}
+mu_w = 0.9989367			! scaling parameters from 23.06.2022
+mu_v = 0.99156038
+mu_ip = 0.1800172
+mu_iq = 0.06395422
+o_w = dsqrt(1.00061130d-04)
+o_v = dsqrt(4.91040567d-04)
+o_ip = dsqrt(1.66692250d-03)
+o_iq = dsqrt(2.53530508d-05)
+ws1 = ([omega]-{mu_w})/{o_w} 		! Historical
+vs1 = ({v0}-{mu_v})/{o_v} 		! Historical 
+ips1 = ({ip0}-{mu_ip})/{o_ip} 		! Historical
+iqs1 =  ({iq0}-{mu_iq})/{o_iq}  	! Historical
+
+%states
+V = {v0}
+ipi = {ip0}
+iqi = {iq0}
+ip = {ip0}
+iq = {iq0}
+ws = {ws1}
+vs = {vs1}
+ips = {ips1}
+iqs = {iqs1}
+
+%observables
+ip
+iq
+
+%models
+& algeq ! Compute V
+[V] - dsqrt([vx]**2+[vy]**2)
+
+& algeq	! Compute V
+-[vs] + ([V]-{mu_v})/{o_v}
+
+& algeq ! Compute dw
+- [ws] + ([omega]-{mu_w})/{o_w}
+
+& algeq                                             ! compute currents from matrix multiplication
+-[ips] + 0 
+
+& algeq                                             ! compute currents from matrix multiplication
+- [iqs] + 0 
+
+& algeq ! Compute ip
+- [ipi] + [ips]*{o_ip}+{mu_ip}
+
+& algeq ! Compute iq
+- [iqi] + [iqs]*{o_iq}+{mu_iq}
+
+& tf1p          ! small "output" time constant for driving the currents
+ipi
+ip
+1.
+Tout
+
+
+& tf1p          ! small "output" time constant for driving the currents
+iqi
+iq
+1.
+Tout
+
+& algeq						! backtransform
+[V]*[ip] - ([vx]*[ix]+[vy]*[iy])
+& algeq
+[V]*[iq] - ([vy]*[ix]-[vx]*[iy])
+
+

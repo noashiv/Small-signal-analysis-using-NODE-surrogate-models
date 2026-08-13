@@ -1,0 +1,9 @@
+data.dat
+SOLVEROPTIONS.dat
+
+init.trace
+nothing.dst 
+obs.trj
+obs.dat
+cont.trace
+disc.trace

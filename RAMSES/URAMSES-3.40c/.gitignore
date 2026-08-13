@@ -1,0 +1,8 @@
+/Release_*
+/Debug_*
+*.user
+*.html
+*.layout
+/doc/
+/x64/
+/.vs/

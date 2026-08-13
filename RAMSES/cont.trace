@@ -1,0 +1,11 @@
+
+t =    0.0000 START
+
+t =    0.0000 CONTINUE SOLVER BD 0.020 0.0001 0. ALL                                                                                            
+t =    0.0000 CONTINUE SOLVER BD 0.020 0.0001 0. ALL                                                                                            
+t =    0.0000 + 0.0001 : net it  0 NET   0.1776E-14             1 NET JU  
+                         inj it  0 INJ   0.1000E-03                4  JU     4 S  =>  0.1008E-03 (PV1)
+                                   NET   0.5013E-06                       
+                         inj it  1 INJ   0.2358E-07                          1 S  =>  0.2358E-07 (PV1)
+                                   NET   0.5013E-06         
+                         inj it  2 INJ   0.8882E-15            

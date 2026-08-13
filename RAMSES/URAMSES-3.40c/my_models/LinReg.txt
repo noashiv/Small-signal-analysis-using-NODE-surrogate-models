@@ -1,0 +1,89 @@
+inj
+LinReg
+
+%data
+mean_v
+std_v
+mean_w
+std_w
+mean_ip
+std_ip
+mean_iq
+std_iq
+avip
+awip
+aviq
+awiq
+Tout
+
+
+%parameters
+v0 = dsqrt([vx]**2+[vy]**2)
+w0 = [omega]
+ip0 = ([vx]*[ix]+[vy]*[iy])/{v0}
+iq0 = ([vy]*[ix]-[vx]*[iy])/{v0}
+dv0 = (-{mean_v})/{std_v}
+dw0 = (-{mean_w})/{std_w}
+
+%states
+ip = {ip0}
+iq = {iq0}
+ipi = {ip0}
+iqi = {iq0}
+ips = -{mean_ip}/{std_ip}
+iqs = -{mean_iq}/{std_iq}
+dv = (-{mean_v})/{std_v}
+dw = (-{mean_w})/{std_w}
+V = {v0}
+
+
+%observables
+ip
+iq
+ix
+iy
+dv
+dw
+ips
+iqs
+
+
+%models
+& algeq
+[V] - dsqrt([vx]**2+[vy]**2)
+
+& algeq
+- [dv] + (dsqrt([vx]**2+[vy]**2)-{v0}-{mean_v})/{std_v}
+
+& algeq
+- [dw] + ([omega]-{w0}-{mean_w})/{std_w}
+
+& algeq                                             ! compute scaled ip
+-[ips] + {avip}*[dv]+{awip}*[dw]
+
+& algeq                                             ! compute scaled iq
+-[iqs] + {aviq}*[dv]+{awiq}*[dw]
+
+& algeq							! descale ip
+-[ipi]+[ips]*{std_ip}+{mean_ip} + {ip0}
+
+& algeq							! descale iq
+-[iqi]+[iqs]*{std_iq}+{mean_iq} + {iq0}
+
+& tf1p          ! small "output" time constant for driving the currents
+ipi
+ip
+1.
+Tout
+
+
+& tf1p          ! small "output" time constant for driving the currents
+iqi
+iq
+1.
+Tout
+
+& algeq						! backtransform
+[V]*[ip] - ([vx]*[ix]+[vy]*[iy])
+& algeq
+[V]*[iq] - ([vy]*[ix]-[vx]*[iy])
