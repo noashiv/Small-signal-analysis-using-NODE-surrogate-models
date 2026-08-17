@@ -7,37 +7,18 @@ import numpy as np
 import pandas as pd
 import pyramses
 from pathlib import Path
+from input_data import RAMSES_PATH, DATA_PATH
 
 print("Python executable:", sys.executable)
 
-
-# =============================================================================
-# User settings
-# =============================================================================
-
-
-
-RAMSES_PATH = (
-    r"C:/RAMSES/Noa-Masters-main/"
-    r"URAMSES-3.40c/Release_intel_w64"
-)
-
 CMD_FILE = "cmd.txt"
 
-N_SIMULATIONS = 1000
+N_SIMULATIONS = 500
 SIMULATION_HORIZON = 25.0
 
 # RAMSES overwrites these files for every simulation.
 TRAJECTORY_FILE = "out.trj"
 TRACE_FILE = "out.trace" 
-
-# Combined output files.
-TIMESERIES_CSV = "all_simulation_timeseries.csv"
-SUMMARY_CSV = "simulation_summary.csv"
-
-
-# Save the summary regularly, so results are not lost if the script stops.
-SUMMARY_SAVE_INTERVAL = 25
 
 
 # =============================================================================
@@ -526,54 +507,17 @@ def extract_timeseries(
     return dataframe
 
 
-def calculate_run_statistics(dataframe):
-    """
-    Calculate useful minimum and maximum values for the simulation summary.
-    """
-
-    statistics = {}
-
-    requested_columns = [
-    "V_N0_pu",
-    "V_N1_pu",
-    "frequency_PV1_Hz",
-    "P_PV1_kW",
-    "Q_PV1_kvar",
-    "Pload_L1_kW",
-    "Qload_L1_kvar",
-    "P_MainTR_MW",
-    "Q_MainTR_Mvar",
-]
-
-    for column_name in requested_columns:
-
-        if column_name not in dataframe.columns:
-            continue
-
-        values = pd.to_numeric(
-            dataframe[column_name],
-            errors="coerce"
-        )
-
-        statistics[f"{column_name}_min"] = values.min()
-        statistics[f"{column_name}_max"] = values.max()
-
-    return statistics
-
 
 # =============================================================================
 # Main program
 # =============================================================================
 
-simulation_summary = []
 
 # Remove existing combined output files before starting a new data-generation
 # run. Comment these lines out if appending to old data is intentional.
-if os.path.exists(TIMESERIES_CSV):
-    os.remove(TIMESERIES_CSV)
+if os.path.exists(DATA_PATH):
+    os.remove(DATA_PATH)
 
-if os.path.exists(SUMMARY_CSV):
-    os.remove(SUMMARY_CSV)
 
 timeseries_header_written = False
 
@@ -594,7 +538,7 @@ for simulation_index in range(N_SIMULATIONS):
     success = False
     error_message = ""
     number_of_samples = 0
-    statistics = {}
+
 
     try:
         # ---------------------------------------------------------------------
@@ -648,14 +592,14 @@ for simulation_index in range(N_SIMULATIONS):
         )
 
         number_of_samples = len(timeseries)
-        statistics = calculate_run_statistics(timeseries)
+       
 
         # Write the simulation to the same combined CSV file.
         #
         # The first successful simulation writes the header. Subsequent
         # simulations append rows without adding another header.
         timeseries.to_csv(
-            TIMESERIES_CSV,
+            DATA_PATH,
             mode="a",
             header=not timeseries_header_written,
             index=False
@@ -707,72 +651,14 @@ for simulation_index in range(N_SIMULATIONS):
             except Exception:
                 pass
 
-    # -------------------------------------------------------------------------
-    # Create summary information for this simulation
-    # -------------------------------------------------------------------------
-    if disturbance_info is None:
-        disturbance_info = {
-            "disturbance_type": "not_created",
-            "disturbance_start_time": np.nan,
-            "P_step": np.nan,
-            "Q_step": np.nan,
-            "ramp_time": np.nan,
-            "fault_R": np.nan,
-            "fault_X": np.nan,
-            "fault_impedance_magnitude": np.nan,
-            "fault_duration": np.nan,
-            "fault_clear_time": np.nan,
-            "disturbance_command_1": "",
-            "disturbance_command_2": "",
-        }
-
-    summary_row = {
-        "simulation_id": simulation_id,
-        **disturbance_info,
-        "success": success,
-        "number_of_time_samples": number_of_samples,
-        "error": error_message,
-        **statistics,
-    }
-
-    simulation_summary.append(summary_row)
-
-    # Save the summary regularly in case execution is interrupted.
-    if (
-        simulation_id % SUMMARY_SAVE_INTERVAL == 0
-        or simulation_id == N_SIMULATIONS
-    ):
-        pd.DataFrame(simulation_summary).to_csv(
-            SUMMARY_CSV,
-            index=False
-        )
-
-        print(
-            f"Summary saved after "
-            f"{simulation_id} simulations."
-        )
-
+    
 
 # =============================================================================
 # Final report
 # =============================================================================
 
-summary_dataframe = pd.DataFrame(simulation_summary)
-
-number_successful = int(
-    summary_dataframe["success"].sum()
-)
-
-number_failed = int(
-    len(summary_dataframe) - number_successful
-)
-
 print("\n====================================================")
 print("Simulation study completed")
 print("====================================================")
-print(f"Total simulations:      {len(summary_dataframe)}")
-print(f"Successful simulations: {number_successful}")
-print(f"Failed simulations:     {number_failed}")
-print(f"Time-series file:       {TIMESERIES_CSV}")
-print(f"Summary file:           {SUMMARY_CSV}")
+print(f"Time-series file:       {DATA_PATH}")
 print("====================================================")
