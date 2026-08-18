@@ -47,11 +47,13 @@ What this script does:
 Run from the project root:
     python stability_physical_node.py
 """
-
+from pathlib import Path
 import os
+import sys
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-from pathlib import Path
+_ROOT = Path(__file__).resolve().parent.parent  
+sys.path.insert(0, str(_ROOT))
 
 import numpy as np
 import pandas as pd
@@ -60,19 +62,14 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
 from torchdiffeq import odeint
-from NODE_PhysTime_AR import (FEATURE_COLS, TARGET_COL, HIDDEN_DIM, DEPTH, NeuralODEFunc)
-
-
+from NODE_PhysTime_AR import (HIDDEN_DIM, DEPTH, NeuralODEFunc)
+from input_data import TARGET_COLS, FEATURE_COLS, DATA_PATH, OUTPUT_DIR, MODEL_PATH
 # =============================================================================
 # Configuration
 # =============================================================================
 
-MODEL_PATH = Path("/zhome/84/1/154964/RAMSES/NeuralODES/results/NODE_PhysTime_AR/checkpoint.pt")
-DATA_PATH = Path("/zhome/84/1/154964/RAMSES/NeuralODES/data/all_simulation_timeseries.csv")
-OUTPUT_DIR = Path("results/plots/stability_fig")
+RESULTS_DIR = Path(OUTPUT_DIR) / "stability"
 
-
-TARGET_NAMES = ["P_MW"]
 
 # Like fixed_points_physical_node.py, this only does light per-run work
 # (one ODE integration + a handful of Jacobians per run), so plain CPU is
@@ -83,8 +80,6 @@ DEVICE = torch.device("cpu")
 # =============================================================================
 # Physical-time NODE model
 # =============================================================================
-
-
 
 class LinearInterpolator(nn.Module):
     """
@@ -109,8 +104,8 @@ class LinearInterpolator(nn.Module):
         # subtracting 1 gives the index of the sample just before t, i.e.
         # the left edge of the [t0, t1] bracket that t falls inside.
         # clamp keeps that index in bounds if t lands at/past either end.
-        i = torch.searchsorted(self.time, t).clamp(1, len(self.time) - 1) - 1
-        t0, t1 = self.time[i], self.time[i + 1]
+        i = torch.searchsorted(self.time_s, t).clamp(1, len(self.time_s) - 1) - 1
+        t0, t1 = self.time_s[i], self.time_s[i + 1]
         x0, x1 = self.inputs[i], self.inputs[i + 1]
         # weight = how far across the [t0, t1] gap t sits (0 at t0, 1 at
         # t1); x0 + weight*(x1-x0) then walks that same fraction of the
@@ -174,14 +169,14 @@ def load_model():
     """Rebuild the physical-time NODE and load its trained parameters."""
     checkpoint = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
     config = checkpoint["model_config"]
-    state_dim = len(TARGET_COL)
 
     model = NeuralODEFunc(
         nx=len(FEATURE_COLS),
         hidden_dim=HIDDEN_DIM,
         depth=DEPTH,
-        state_dim=state_dim,
+        state_dim=len(TARGET_COLS),
     )
+
     model.load_state_dict(strip_compile_prefix(checkpoint["model_state_dict"]))
     model.to(DEVICE).eval()
 
@@ -192,7 +187,7 @@ def load_runs(feature_cols):
     """
     Load the parquet file and group its rows into individual simulation runs.
 
-    Returns a dict of {run_id: dataframe}, each dataframe holding just that
+    Returns a dict of {simulation_id: dataframe}, each dataframe holding just that
     one run's rows sorted by time — this is the same "one run = one
     trajectory" shape used everywhere else in the pipeline
     (NODE_PhysTime_AR.py's normalized_runs, fixed_points_physical_node.py's
@@ -200,14 +195,15 @@ def load_runs(feature_cols):
     instead of going through the shared normalisation helper.
     """
     columns = list(dict.fromkeys(
-        ["simulation_id", "time_s"] + list(feature_cols) + TARGET_COL
+        ["simulation_id", "time_s"] + list(feature_cols) + list(TARGET_COLS)
     ))
-    data = pd.read_parquet(DATA_PATH, columns=columns, engine="fastparquet")
+    data = pd.read_csv(DATA_PATH, usecols=columns)
     data = data.sort_values(["simulation_id", "time_s"])
+    data = data.drop_duplicates(subset=["simulation_id", "time_s"], keep="first")
 
     return {
-        run_id: group.reset_index(drop=True)
-        for run_id, group in data.groupby("simulation_id", sort=False)
+        simulation_id: group.reset_index(drop=True)
+        for simulation_id, group in data.groupby("simulation_id", sort=False)
     }
 
 
@@ -238,10 +234,10 @@ def prepare_run(group, norm_stats):
     x_norm = (x_raw - x_mean) / (x_std + 1e-8)
 
     time = torch.tensor(
-        group["time"].to_numpy(dtype=np.float32), device=DEVICE
+        group["time_s"].to_numpy(dtype=np.float32), device=DEVICE
     )
     inputs = torch.tensor(x_norm, dtype=torch.float32, device=DEVICE)
-    target = group[TARGET_COL].to_numpy(dtype=np.float32)
+    target = group[TARGET_COLS].to_numpy(dtype=np.float32)
 
     return time, inputs, target
 
@@ -378,7 +374,7 @@ def full_run_ftles(time, jacobians):
     return np.sort(ftles)[::-1]
 
 
-def analyse_run(run_id, group, model, norm_stats):
+def analyse_run(simulation_id, group, model, norm_stats):
     """
     Run the full pipeline for one simulation run: reconstruct the
     network's predicted trajectory, compute instantaneous Jacobians/
@@ -408,11 +404,11 @@ def analyse_run(run_id, group, model, norm_stats):
     spectral_abscissa = np.max(eigenvalues.real, axis=1)
 
     timestep_rows = pd.DataFrame({
-        "simulation_id": run_id,
+        "simulation_id": simulation_id,
         "time_s": time_np,
     })
 
-    for j, name in enumerate(TARGET_NAMES):
+    for j, name in enumerate(TARGET_COLS):
         timestep_rows[f"target_{name}"] = target[:, j]
         timestep_rows[f"prediction_{name}"] = prediction[:, j]
 
@@ -447,7 +443,7 @@ def analyse_run(run_id, group, model, norm_stats):
     # locally stable", the dominant_ftle_1_per_s above is the more rigorous
     # whole-run answer to the same underlying question.
     run_summary = {
-        "run_id": run_id,
+        "simulation_id": simulation_id,
         "n_timesteps": len(time_np),
         "duration_s": float(time_np[-1] - time_np[0]),
         "dominant_ftle_1_per_s": float(ftles[0]),
@@ -486,7 +482,7 @@ def make_plots(timestep_data, run_summary):
     to the right) over full runs, not just instants.
     """
     fig, ax = plt.subplots(figsize=(8, 4))
-    for _, run in timestep_data.groupby("run_id"):
+    for _, run in timestep_data.groupby("simulation_id"):
         ax.plot(
             run["time_s"],
             run["spectral_abscissa_1_per_s"],
@@ -497,7 +493,7 @@ def make_plots(timestep_data, run_summary):
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Instantaneous spectral abscissa (1/s)")
     fig.tight_layout()
-    fig.savefig(OUTPUT_DIR / "stability_eigenvalues.png", dpi=300)
+    fig.savefig(RESULTS_DIR / "stability_eigenvalues.png", dpi=300)
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -510,35 +506,35 @@ def make_plots(timestep_data, run_summary):
     ax.set_xlabel("Dominant full-run FTLE (1/s)")
     ax.set_ylabel("Number of runs")
     fig.tight_layout()
-    fig.savefig(OUTPUT_DIR / "stability_ftle.png", dpi=300)
+    fig.savefig(RESULTS_DIR / "stability_ftle.png", dpi=300)
     plt.close(fig)
 
 
 def main():
     """Load the model, analyse every CSV run, and save all results."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     model, norm_stats = load_model()
     run_groups = load_runs(norm_stats["feature_cols"])
-    run_ids = sorted(run_groups)
+    simulation_ids = sorted(run_groups)
 
     timestep_results = []
     run_results = []
 
     print(
-        f"Analysing all {len(run_ids)} runs with "
+        f"Analysing all {len(simulation_ids)} runs with "
         f"{model.state_dim} NODE state(s) on {DEVICE}..."
     )
 
-    for number, run_id in enumerate(run_ids, start=1):
+    for number, simulation_id in enumerate(simulation_ids, start=1):
         timestep_rows, run_summary = analyse_run(
-            run_id, run_groups[run_id], model, norm_stats
+            simulation_id, run_groups[simulation_id], model, norm_stats
         )
         timestep_results.append(timestep_rows)
         run_results.append(run_summary)
 
         print(
-            f"[{number:3d}/{len(run_ids)}] run {run_id}: "
+            f"[{number:3d}/{len(simulation_ids)}] run {simulation_id}: "
             f"dominant FTLE = "
             f"{run_summary['dominant_ftle_1_per_s']:+.6f} 1/s"
         )
@@ -547,10 +543,10 @@ def main():
     run_summary = pd.DataFrame(run_results)
 
     timestep_data.to_csv(
-        OUTPUT_DIR / "stability_eigenvalues.csv", index=False
+        RESULTS_DIR / "stability_eigenvalues.csv", index=False
     )
     run_summary.to_csv(
-        OUTPUT_DIR / "stability_ftle_by_run.csv", index=False
+        RESULTS_DIR / "stability_ftle_by_run.csv", index=False
     )
 
     dominant_ftle = run_summary["dominant_ftle_1_per_s"]
@@ -564,14 +560,14 @@ def main():
         "fraction_ftle_negative": (dominant_ftle < 0.0).mean(),
     }])
     overall_summary.to_csv(
-        OUTPUT_DIR / "stability_summary.csv", index=False
+        RESULTS_DIR / "stability_summary.csv", index=False
     )
 
     make_plots(timestep_data, run_summary)
 
     print("\nOverall summary")
     print(overall_summary.to_string(index=False))
-    print(f"\nResults saved in: {OUTPUT_DIR.resolve()}")
+    print(f"\nResults saved in: {RESULTS_DIR.resolve()}")
 
 
 if __name__ == "__main__":
