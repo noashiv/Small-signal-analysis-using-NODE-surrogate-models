@@ -62,12 +62,15 @@ What this script does
 Run from the project root:
     python fixed_points_physical_node.py
 """
-
+from pathlib import Path
 import os
+import sys
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+_ROOT = Path(__file__).resolve().parent.parent  
+sys.path.insert(0, str(_ROOT))
+
 from itertools import product
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -76,15 +79,14 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from scipy.optimize import root
 from sklearn.model_selection import train_test_split
-from NODE_PhysTime_AR import (FEATURE_COLS, TARGET_COL, HIDDEN_DIM, DEPTH, NeuralODEFunc)
-
+from NODE_PhysTime_AR import (HIDDEN_DIM, DEPTH, NeuralODEFunc)
+from input_data import TARGET_COLS, FEATURE_COLS, DATA_PATH, OUTPUT_DIR, MODEL_PATH
 # =============================================================================
 # Configuration
 # =============================================================================
 
-MODEL_PATH = Path("/zhome/84/1/154964/RAMSES/NeuralODES/results/NODE_PhysTime_AR/checkpoint.pt")
-DATA_PATH = Path("/zhome/84/1/154964/RAMSES/NeuralODES/data/all_simulation_timeseries.csv")
-OUTPUT_DIR = Path("figures/fixed_points")
+
+RESULTS_DIR = os.path.join(OUTPUT_DIR, "fixed points")
 
 # Train/val/test split must match NODE_PhysTime_AR.py (via data_utils.py)
 # so the fixed-point search only uses runs the network was trained on.
@@ -93,7 +95,6 @@ OUTPUT_DIR = Path("figures/fixed_points")
 # training script to reproduce it we just repeat the same call here.
 SEED = 42
 TEST_SIZE = 0.30
-
 
 TARGET_NAMES = ["P_MW"]
 
@@ -155,16 +156,17 @@ def load_model():
     """Rebuild the physical-time NODE and load its trained parameters."""
     checkpoint = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
     config = checkpoint["model_config"]
-    state_dim = len(TARGET_COL)
-
+   
     # Rebuild the same architecture the checkpoint was trained with, using
     # the config dict that NODE_PhysTime_AR.py saved alongside the weights.
     model = NeuralODEFunc(
         nx=len(FEATURE_COLS),
         hidden_dim=HIDDEN_DIM,
         depth=DEPTH,
-        state_dim=state_dim,
+        state_dim=len(TARGET_COLS),
     )
+
+    # The trained model has one scalar state: P_MainTR_MW
     model.load_state_dict(strip_compile_prefix(checkpoint["model_state_dict"]))
     # .eval() turns off training-only behaviour (there isn't any dropout/
     # batchnorm here, but it's good practice for inference regardless).
@@ -172,13 +174,12 @@ def load_model():
 
     return model, checkpoint["norm_stats"]
 
-
 def load_training_data(feature_cols):
     """Load the training-split runs and add each run's normalised time."""
     columns = list(dict.fromkeys(
-        ["run_id", "time"] + list(feature_cols) + TARGET_COL
+        ["simulation_id", "time_s"] + list(feature_cols) + list(TARGET_COL)
     ))
-    data = pd.read_csv(DATA_PATH, usecols=use_cols)
+    data = pd.read_csv(DATA_PATH, usecols=columns)
     data = data.sort_values(["simulation_id", "time_s"]).reset_index(drop=True)
 
     # Recreate exactly the same train/val/test split NODE_PhysTime_AR.py
@@ -224,25 +225,43 @@ def target_normalisation(norm_stats):
 
 def make_initial_guesses(target_data, y_mean, y_std):
     """
-    Build a grid of starting guesses for the root-finder, spread evenly
-    across the range of target values actually observed in training.
-
-    This is simply N_ROOT_GUESSES evenly spaced values between the
-    observed min and max (in normalised units, since that's the space the
-    network operates in). Trying this many spread out starting points is
-    what lets us find multiple distinct fixed points if the network's
-    dynamics have more than one, instead of only ever finding whichever
-    one the root-finder happens to converge to first.
+    Build a grid of starting guesses for the root-finder,
+    spread evenly across the range of target values observed
+    in the training data.
     """
-    lo = float(target_data[:, 0].min())
-    hi = float(target_data[:, 0].max())
-    values = np.linspace(lo, hi, N_ROOT_GUESSES)
-    # Convert to the same normalised (z-scored) units the network was
-    # trained on, since that's what we'll feed it below.
-    values_norm = (values - y_mean[0]) / (y_std[0] + 1e-8)
 
-    return [np.asarray([value], dtype=np.float64) for value in values_norm]
+    # Convert target data to a flat 1D array
+    target_data = np.asarray(target_data).reshape(-1)
 
+    # Find observed range in physical units
+    lo = float(target_data.min())
+    hi = float(target_data.max())
+
+    # Create evenly spaced initial guesses
+    values = np.linspace(
+        lo,
+        hi,
+        N_ROOT_GUESSES
+    )
+
+    # y_mean and y_std may be scalars or arrays.
+    y_mean_scalar = float(np.asarray(y_mean).reshape(-1)[0])
+    y_std_scalar = float(np.asarray(y_std).reshape(-1)[0])
+
+    # Convert to the normalized units used during training
+    values_norm = (
+        values - y_mean_scalar
+    ) / (
+        y_std_scalar + 1e-8
+    )
+
+    return [
+        np.asarray(
+            [value],
+            dtype=np.float64
+        )
+        for value in values_norm
+    ]
 
 def evaluate_rhs(model, y_norm, x_norm, time_value):
     """
@@ -432,14 +451,16 @@ def initial_operating_condition(data, feature_cols):
     runs (e.g. an outlier starting condition) can't skew the "typical
     starting point" the way an average would.
     """
-    initial_rows = data.groupby("run_id", sort=False).first().reset_index()
+    initial_rows = data.groupby("simulation_id", sort=False).first().reset_index()
 
     x_initial = initial_rows[feature_cols].median().to_numpy(dtype=np.float64)
     # time_initial is 0.0 by construction: every run's first sample defines
     # the origin of time_norm.
     time_initial = float(initial_rows["time_norm"].median())
-    y_initial = initial_rows[TARGET_COL].median().to_numpy(dtype=np.float64)
-
+    y_initial = np.asarray(
+    [initial_rows[TARGET_COL].median()],
+    dtype=np.float64
+)
     return x_initial, time_initial, y_initial
 
 
@@ -633,7 +654,7 @@ def make_initial_plot(initial_results):
     ax.legend()
 
     fig.tight_layout()
-    fig.savefig(OUTPUT_DIR / "initial_condition_fixed_points.png", dpi=300)
+    fig.savefig(RESULTS_DIR / "initial_condition_fixed_points.png", dpi=300)
     plt.close(fig)
 
 
@@ -672,7 +693,7 @@ def main():
     """Run both fixed-point analyses and save the results."""
     torch.manual_seed(42)
     np.random.seed(42)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     model, norm_stats = load_model()
     feature_cols = norm_stats["feature_cols"]
@@ -705,27 +726,27 @@ def main():
     )
 
     initial_results.to_csv(
-        OUTPUT_DIR / "fixed_points_initial_condition.csv", index=False
+        RESULTS_DIR / "fixed_points_initial_condition.csv", index=False
     )
     sweep_results.to_csv(
-        OUTPUT_DIR / "fixed_points_feature_time_sweep.csv", index=False
+        RESULTS_DIR / "fixed_points_feature_time_sweep.csv", index=False
     )
     sweep_conditions.to_csv(
-        OUTPUT_DIR / "fixed_point_sweep_conditions.csv", index=False
+        RESULTS_DIR / "fixed_point_sweep_conditions.csv", index=False
     )
 
     summary = make_summary(
         initial_results, sweep_results, sweep_conditions
     )
     summary.to_csv(
-        OUTPUT_DIR / "fixed_point_summary.csv", index=False
+        RESULTS_DIR / "fixed_point_summary.csv", index=False
     )
 
     make_initial_plot(initial_results)
 
     print("\nSummary")
     print(summary.to_string(index=False))
-    print(f"\nResults saved in: {OUTPUT_DIR.resolve()}")
+    print(f"\nResults saved in: {RESULTS_DIR.resolve()}")
 
 
 if __name__ == "__main__":
