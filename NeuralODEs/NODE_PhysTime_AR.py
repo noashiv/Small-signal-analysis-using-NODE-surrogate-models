@@ -71,7 +71,7 @@ DEVICE = torch.device("cuda")
 HIDDEN_DIM = 128   # width of each hidden layer in the ODE's right-hand-side network
 DEPTH = 4          # number of hidden layers
 LR = 1e-3          # learning rate (note: SOAP below is constructed with its own lr=1e-3 too)
-EPOCHS = 10       # max number of training epochs (early stopping may end it sooner)
+EPOCHS = 500       # max number of training epochs (early stopping may end it sooner)
 BATCH_SIZE = None  # computed below from free GPU memory, once data is loaded
 METHOD = "rk4"     # fixed-step Runge-Kutta 4 ODE solver
 
@@ -431,7 +431,7 @@ model = NeuralODEFunc(
     hidden_dim=HIDDEN_DIM,
     depth=DEPTH,
     state_dim=len(TARGET_COLS),
-)
+).to(DEVICE)
 functorch_config.donated_buffer = False  # required for torch.compile to play nicely with the adjoint ODE solver, I dont understand it
 #model = torch.compile(model, dynamic=True)  # pre complies the network for faster GPU execution, I dont understand it but it works and makes training faster.
 
@@ -578,7 +578,7 @@ def run_epoch(X, y, t, y0, mask, train=True):
                     y0b,
                     tb[:, 0],
                     method=METHOD
-                ).squeeze(-1)
+                )
                 # Compare the predicted and true trajectories while ignoring
                 # padded timesteps using the mask.
                 loss = masked_mse(y_pred, yb, mb)
@@ -671,7 +671,7 @@ with torch.inference_mode():
             y0,
             t,
             method=METHOD
-        ).squeeze()
+        )[:, 0, :] 
 
         # Undo the z-score normalization applied during data loading.
         y_pred_np = y_pred.cpu().numpy() * y_std + y_mean
