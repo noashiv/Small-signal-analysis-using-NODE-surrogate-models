@@ -31,7 +31,7 @@ def load_and_normalise_and_split_data(
     time_col="time_s",
 ):
     """
-    Load csv, compute FORWARD-aligned dt per run, create both raw `dt` and z-scored
+    Load Parquet, compute FORWARD-aligned dt per run, create both raw `dt` and z-scored
     `dt_norm` (using TRAIN-only stats), then normalize other features with TRAIN-only z-score.
     Any of ["dt", "dt_norm"] may be included in `feature_cols` (even both).
 
@@ -48,7 +48,7 @@ def load_and_normalise_and_split_data(
     #    won't exist as real columns in the file even if requested as features)
     # ----------------------------------------------------------------------
     requested_no_dt = [c for c in feature_cols if c not in (dt_col_name, dt_norm_col_name)]
-    use_cols = [run_col, time_col] + list(requested_no_dt) + [target_col]
+    use_cols = [run_col, time_col] + list(requested_no_dt) + target_col
     df = pd.read_csv(csv_paths, usecols=use_cols)
 
     # ----------------------------------------------------------------------
@@ -69,7 +69,7 @@ def load_and_normalise_and_split_data(
             keep="last"
         )
     # Removes NaN-values
-    required_cols = feature_cols + [target_col, run_col, time_col]
+    required_cols = feature_cols + target_col + [run_col, time_col]
 
     n_before = len(df)
     df = df.dropna(subset=required_cols).reset_index(drop=True)
@@ -191,29 +191,10 @@ def load_and_normalise_and_split_data(
     feature_cols = list(feature_cols)  # ensure list copy
 
     X_train_df = pd.concat([run_groups[rid][feature_cols] for rid in train_ids], axis=0)
-    y_train_df = pd.concat([run_groups[rid][[target_col]] for rid in train_ids], axis=0)
-
-    print("NaN per feature:")
-    print(X_train_df.isna().sum())
-
-    print("Inf per feature:")
-    print(
-        pd.Series(
-            np.isinf(X_train_df.to_numpy(dtype=np.float64)).sum(axis=0),
-            index=feature_cols
-        )
-    )
-
-    print("NaN i target:", y_train_df[target_col].isna().sum())
-    print(
-        "Inf i target:",
-        np.isinf(
-            y_train_df[target_col].to_numpy(dtype=np.float64)
-        ).sum()
-    )
+    y_train_df = pd.concat([run_groups[rid][target_col] for rid in train_ids], axis=0)
 
     X_train = X_train_df.values
-    y_train = y_train_df.values.ravel()
+    y_train = y_train_df.values
 
     X_mean = np.zeros(len(feature_cols), dtype=np.float32)
     X_std  = np.ones(len(feature_cols), dtype=np.float32)
@@ -234,8 +215,8 @@ def load_and_normalise_and_split_data(
             X_mean[j] = float(vals.mean())
             X_std[j]  = float(vals.std())
 
-    y_mean = float(y_train.mean())
-    y_std  = float(y_train.std())
+    y_mean = y_train.mean(axis=0).astype(np.float32)  # shape (n_targets,)
+    y_std  = y_train.std(axis=0).astype(np.float32)   # shape (n_targets,)
     for col, mean, std in zip(feature_cols, X_mean, X_std):
         print(f"{col}: mean={mean}, std={std}")
     # ----------------------------------------------------------------------
@@ -244,7 +225,7 @@ def load_and_normalise_and_split_data(
     normalized_runs = {}
     for rid, data in run_groups.items():
         X_vals = data[feature_cols].values.astype(np.float32)
-        y_vals = data[[target_col]].values.astype(np.float32).ravel()
+        y_vals = data[target_col].values.astype(np.float32)
 
         X_norm = X_vals.copy()
         for j, col in enumerate(feature_cols):
