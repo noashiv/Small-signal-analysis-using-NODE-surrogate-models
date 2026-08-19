@@ -85,8 +85,7 @@ from input_data import TARGET_COLS, FEATURE_COLS, DATA_PATH, OUTPUT_DIR, MODEL_P
 # Configuration
 # =============================================================================
 
-
-RESULTS_DIR = os.path.join(OUTPUT_DIR, "fixed points")
+RESULTS_DIR = Path(OUTPUT_DIR) / "fixed points"
 
 # Train/val/test split must match NODE_PhysTime_AR.py (via data_utils.py)
 # so the fixed-point search only uses runs the network was trained on.
@@ -96,7 +95,6 @@ RESULTS_DIR = os.path.join(OUTPUT_DIR, "fixed points")
 SEED = 42
 TEST_SIZE = 0.30
 
-TARGET_NAMES = ["P_MW"]
 
 # This script only ever runs a handful of small root-solves and Jacobians
 # at a time, so plain CPU is fast enough I think
@@ -177,7 +175,7 @@ def load_model():
 def load_training_data(feature_cols):
     """Load the training-split runs and add each run's normalised time."""
     columns = list(dict.fromkeys(
-        ["simulation_id", "time_s"] + list(feature_cols) + list(TARGET_COL)
+        ["simulation_id", "time_s"] + list(feature_cols) + list(TARGET_COLS)
     ))
     data = pd.read_csv(DATA_PATH, usecols=columns)
     data = data.sort_values(["simulation_id", "time_s"]).reset_index(drop=True)
@@ -417,7 +415,7 @@ def describe_fixed_point(model, fixed_point, x_norm, time_value,
         "stability": classify_stability(spectral_abscissa),
     }
 
-    for j, name in enumerate(TARGET_NAMES):
+    for j, name in enumerate(TARGET_COLS):
         result[f"fixed_{name}"] = float(y_physical[j])
         result[f"fixed_{name}_normalized"] = float(y_norm[j])
 
@@ -458,7 +456,7 @@ def initial_operating_condition(data, feature_cols):
     # the origin of time_norm.
     time_initial = float(initial_rows["time_norm"].median())
     y_initial = np.asarray(
-    [initial_rows[TARGET_COL].median()],
+    [initial_rows[TARGET_COLS].median()],
     dtype=np.float64
 )
     return x_initial, time_initial, y_initial
@@ -503,7 +501,7 @@ def analyse_initial_condition(model, data, norm_stats, initial_guesses,
         for j, feature in enumerate(feature_cols):
             row[feature] = float(x_initial[j])
 
-        for j, name in enumerate(TARGET_NAMES):
+        for j, name in enumerate(TARGET_COLS):
             row[f"expected_initial_{name}"] = float(y_expected[j])
 
         row.update(describe_fixed_point(
@@ -665,7 +663,7 @@ def make_summary(initial_results, sweep_results, sweep_conditions):
     and a stable/unstable/marginal breakdown for each analysis.
     """
     summary = {
-        "state_dimension": len(TARGET_COL),
+        "state_dimension": len(TARGET_COLS),
         "initial_condition_fixed_points": len(initial_results),
         "sweep_conditions": len(sweep_conditions),
         "sweep_conditions_without_fixed_point": int(
@@ -705,7 +703,7 @@ def main():
     # normalised units. find_fixed_points() uses the normalised version to
     # reject any "solution" that falls outside what the network actually
     # saw during training (see the inside_range check there).
-    target_data = data[TARGET_COL].to_numpy(dtype=np.float64)
+    target_data = data[TARGET_COLS].to_numpy(dtype=np.float64)
     state_lo = target_data.min(axis=0)
     state_hi = target_data.max(axis=0)
     state_lo_norm = (state_lo - y_mean) / (y_std + 1e-8)
