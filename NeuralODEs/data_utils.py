@@ -31,10 +31,6 @@ def load_and_normalise_and_split_data(
     time_col="time_s",
 ):
     """
-    Load Parquet, compute FORWARD-aligned dt per run, create both raw `dt` and z-scored
-    `dt_norm` (using TRAIN-only stats), then normalize other features with TRAIN-only z-score.
-    Any of ["dt", "dt_norm"] may be included in `feature_cols` (even both).
-
     Returns:
       - split IDs, per-split tensors, per-run tensors
       - df with computed dt & dt_norm
@@ -66,7 +62,7 @@ def load_and_normalise_and_split_data(
         print(f"[INFO] Removing {n_duplicates} duplicate timestamps.")
         df = df.drop_duplicates(
             subset=[run_col, time_col],
-            keep="last"
+            keep="first"
         )
     # Removes NaN-values
     required_cols = feature_cols + target_col + [run_col, time_col]

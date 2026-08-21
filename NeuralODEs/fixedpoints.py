@@ -127,7 +127,7 @@ N_ROOT_GUESSES = 15
 ROOT_RESIDUAL_TOL = 1e-6
 ROOT_DEDUP_TOL = 1e-4
 STABILITY_TOL = 1e-6
-
+torch.set_num_threads(1)
 
 # =============================================================================
 # Loading the checkpoint and training data
@@ -455,10 +455,8 @@ def initial_operating_condition(data, feature_cols):
     # time_initial is 0.0 by construction: every run's first sample defines
     # the origin of time_norm.
     time_initial = float(initial_rows["time_norm"].median())
-    y_initial = np.asarray(
-    [initial_rows[TARGET_COLS].median()],
-    dtype=np.float64
-)
+    y_initial = initial_rows[TARGET_COLS].median().to_numpy(dtype=np.float64)
+
     return x_initial, time_initial, y_initial
 
 
@@ -709,29 +707,15 @@ def main():
     state_lo_norm = (state_lo - y_mean) / (y_std + 1e-8)
     state_hi_norm = (state_hi - y_mean) / (y_std + 1e-8)
     initial_guesses = make_initial_guesses(target_data, y_mean, y_std)
-
     print("Analysis A: initial operating condition")
-    initial_results = analyse_initial_condition(
-        model, data, norm_stats, initial_guesses,
-        state_lo_norm, state_hi_norm,
-    )
+    initial_results = analyse_initial_condition(...)
+    initial_results.to_csv(RESULTS_DIR / "fixed_points_initial_condition.csv", index=False)  # gem MED DET SAMME
     print(f"  Found {len(initial_results)} distinct fixed point(s)")
 
     print("\nAnalysis B: training-range feature-time sweep")
-    sweep_results, sweep_conditions = analyse_feature_time_sweep(
-        model, data, norm_stats, initial_guesses,
-        state_lo_norm, state_hi_norm,
-    )
-
-    initial_results.to_csv(
-        RESULTS_DIR / "fixed_points_initial_condition.csv", index=False
-    )
-    sweep_results.to_csv(
-        RESULTS_DIR / "fixed_points_feature_time_sweep.csv", index=False
-    )
-    sweep_conditions.to_csv(
-        RESULTS_DIR / "fixed_point_sweep_conditions.csv", index=False
-    )
+    sweep_results, sweep_conditions = analyse_feature_time_sweep(...)
+    sweep_results.to_csv(RESULTS_DIR / "fixed_points_feature_time_sweep.csv", index=False)
+    sweep_conditions.to_csv(RESULTS_DIR / "fixed_point_sweep_conditions.csv", index=False)
 
     summary = make_summary(
         initial_results, sweep_results, sweep_conditions

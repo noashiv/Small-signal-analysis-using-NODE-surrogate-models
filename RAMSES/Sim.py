@@ -2,14 +2,22 @@ import sys
 import os
 import random
 import traceback
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent  
+sys.path.insert(0, str(_ROOT))
 
 import numpy as np
 import pandas as pd
 import pyramses
-from pathlib import Path
+
 from input_data import RAMSES_PATH, DATA_PATH
 
 print("Python executable:", sys.executable)
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
 
 CMD_FILE = "cmd.txt"
 
@@ -24,6 +32,8 @@ TRACE_FILE = "out.trace"
 # =============================================================================
 # Disturbance ranges
 # =============================================================================
+DISTURBANCE_START_TIME_MIN = 3.0
+DISTURBANCE_START_TIME_MAX = 20.0
 
 # Load-step ranges.
 LOAD_P_MIN = 0.0
@@ -34,8 +44,6 @@ LOAD_Q_MAX = 2.0
 
 LOAD_RAMP_MIN = 0.02
 LOAD_RAMP_MAX = 0.20
-
-LOAD_START_TIME = 5.0
 
 
 # Voltage-fault ranges.
@@ -48,7 +56,6 @@ VOLTAGE_FAULT_X_MAX = 0.10
 VOLTAGE_FAULT_DURATION_MIN = 0.05
 VOLTAGE_FAULT_DURATION_MAX = 1.00
 
-VOLTAGE_FAULT_START_TIME = 10.0
 
 
 # Near-solid short-circuit ranges.
@@ -61,9 +68,16 @@ SHORT_CIRCUIT_X_MAX = 0.005
 SHORT_CIRCUIT_DURATION_MIN = 0.05
 SHORT_CIRCUIT_DURATION_MAX = 1.00
 
-SHORT_CIRCUIT_START_TIME = 15.0
-
-
+# Tracks how many simulations failed to extract each optional signal, so we
+# can print one summary at the end instead of only scattered per-run warnings.
+extraction_failures = {
+    "L1": 0,
+    "L0": 0,
+    "PV_Pgen": 0,
+    "PV_Qgen": 0,
+    "PV_frequency": 0,
+    "MainTR": 0,
+}
 # =============================================================================
 # Helper functions
 # =============================================================================
@@ -113,6 +127,7 @@ def create_disturbance(ram):
         p_step = random.uniform(LOAD_P_MIN, LOAD_P_MAX)
         q_step = random.uniform(LOAD_Q_MIN, LOAD_Q_MAX)
         ramp_time = random.uniform(LOAD_RAMP_MIN, LOAD_RAMP_MAX)
+        start_time = random.uniform(DISTURBANCE_START_TIME_MIN, DISTURBANCE_START_TIME_MAX)
 
         p_command = (
             f"CHGPRM INJ L0 P0 "
@@ -124,11 +139,11 @@ def create_disturbance(ram):
             f"{q_step:.6f} {ramp_time:.6f}"
         )
 
-        ram.addDisturb(LOAD_START_TIME, p_command)
-        ram.addDisturb(LOAD_START_TIME, q_command)
+        ram.addDisturb(start_time, p_command)
+        ram.addDisturb(start_time, q_command)
 
         info.update({
-            "disturbance_start_time": LOAD_START_TIME,
+            "disturbance_start_time": start_time,
             "P_step": p_step,
             "Q_step": q_step,
             "ramp_time": ramp_time,
@@ -155,8 +170,8 @@ def create_disturbance(ram):
             VOLTAGE_FAULT_DURATION_MIN,
             VOLTAGE_FAULT_DURATION_MAX
         )
-
-        clear_time = VOLTAGE_FAULT_START_TIME + duration
+        start_time = random.uniform(DISTURBANCE_START_TIME_MIN, DISTURBANCE_START_TIME_MAX)
+        clear_time = start_time + duration
 
         fault_command = (
             f"FAULT BUS N1 {fault_r:.6f} {fault_x:.6f}"
@@ -165,7 +180,7 @@ def create_disturbance(ram):
         clear_command = "CLEAR BUS N1"
 
         ram.addDisturb(
-            VOLTAGE_FAULT_START_TIME,
+            start_time,
             fault_command
         )
 
@@ -175,7 +190,7 @@ def create_disturbance(ram):
         )
 
         info.update({
-            "disturbance_start_time": VOLTAGE_FAULT_START_TIME,
+            "disturbance_start_time": start_time,
             "fault_R": fault_r,
             "fault_X": fault_x,
             "fault_impedance_magnitude": np.hypot(fault_r, fault_x),
@@ -204,8 +219,8 @@ def create_disturbance(ram):
             SHORT_CIRCUIT_DURATION_MIN,
             SHORT_CIRCUIT_DURATION_MAX
         )
-
-        clear_time = SHORT_CIRCUIT_START_TIME + duration
+        start_time = random.uniform(DISTURBANCE_START_TIME_MIN, DISTURBANCE_START_TIME_MAX)
+        clear_time = start_time + duration
 
         fault_command = (
             f"FAULT BUS N1 {fault_r:.6f} {fault_x:.6f}"
@@ -214,7 +229,7 @@ def create_disturbance(ram):
         clear_command = "CLEAR BUS N1"
 
         ram.addDisturb(
-            SHORT_CIRCUIT_START_TIME,
+            start_time,
             fault_command
         )
 
@@ -224,7 +239,7 @@ def create_disturbance(ram):
         )
 
         info.update({
-            "disturbance_start_time": SHORT_CIRCUIT_START_TIME,
+            "disturbance_start_time": start_time,
             "fault_R": fault_r,
             "fault_X": fault_x,
             "fault_impedance_magnitude": np.hypot(fault_r, fault_x),
@@ -373,6 +388,7 @@ def extract_timeseries(
         )
 
     except Exception as error:
+        extraction_failures["L1"] += 1
         print(
             f"Warning: could not extract L1 in simulation "
             f"{simulation_id}: {error}"
@@ -405,6 +421,7 @@ def extract_timeseries(
         )
 
     except Exception as error:
+        extraction_failures["L0"] += 1
         print(
             f"Warning: could not extract L0 in simulation "
             f"{simulation_id}: {error}"
@@ -442,6 +459,7 @@ def extract_timeseries(
             )
 
         except Exception as error:
+            extraction_failures["PV_Pgen"] += 1
             print(
                 f"Warning: Pgen unavailable for "
                 f"{pv_name}: {error}"
@@ -459,6 +477,7 @@ def extract_timeseries(
             )
 
         except Exception as error:
+            extraction_failures["PV_Qgen"] += 1
             print(
                 f"Warning: Qgen unavailable for "
                 f"{pv_name}: {error}"
@@ -473,6 +492,7 @@ def extract_timeseries(
             )
 
         except Exception as error:
+            extraction_failures["PV_frequency"] += 1
             print(
                 f"Warning: frequency unavailable for "
                 f"{pv_name}: {error}"
@@ -499,6 +519,7 @@ def extract_timeseries(
         )
 
     except Exception as error:
+        extraction_failures["MainTR"] += 1
         print(
             f"Warning: could not extract MainTR in simulation "
             f"{simulation_id}: {error}"
@@ -661,4 +682,12 @@ print("\n====================================================")
 print("Simulation study completed")
 print("====================================================")
 print(f"Time-series file:       {DATA_PATH}")
+print("----------------------------------------------------")
+print("Extraction failure summary (out of "
+      f"{N_SIMULATIONS} simulations):")
+for column_name, count in extraction_failures.items():
+    if count > 0:
+        print(f"  {column_name}: failed in {count} simulation(s)")
+if not any(extraction_failures.values()):
+    print("  No extraction failures.")
 print("====================================================")
