@@ -102,6 +102,17 @@ A NODE (neural ordinary differential equation) model predicts the rate of change
 
 The model then starts its training on the training set, where it trains up to the amount of EPOCHS passes over the training data, alternating with a validation pass. Training ends as soon as the model has completed all training data with the given EPOCHS or when th validation loss stops improving by a certain amount given by early_stopping.py. early_stopping.py tracks the validation loss and stops once the loss doesnt improve by a meaningfull amount over a certain amount of epochs. This protects against overfitting and can shorten computation time. 
 
+The complexity of the neural network is configured through:
+  ```sh
+  HIDDEN_DIM    # Width of each hidden layer in the ODE's right-hand-side network
+  DEPTH         # Number of hidden layers
+  EPOCHS        # Maximum number of training epochs
+  METHODS       # ODE solver method (fixed-step RK4 by default)
+  LR            # Learning rate
+  BATCH_SIZE    # computed automatically from free GPU memory once the data is loaded
+  ```
+The scripts writes the trained model's weights with architecture configuration and normalized statistics to checkpoint.pt, and the predictions on the test set along with the actual data to predictions.csv
+
 
 ## Step 3 — Fixed-point analysis (fixed_points_physical_node.py)
 
