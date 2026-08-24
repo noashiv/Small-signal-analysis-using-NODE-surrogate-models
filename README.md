@@ -1,4 +1,7 @@
 # Small-signal-analysis-using-NODE-surrogate-models
+A power system can be constructed as a neural network, therefor to model the dynamics and perform a stability analysis, the power system is constructed as a neural network consisting of ordinary differential equations. This model will learn the physical dynamics of the given distribution network simulated with RAMSES and forecast the behavior of the main transformer power. To validate and analyse the forecast a small signal analysis is performed, which from analysization can tell if the learned dynamics are feasible and stable....
+
+
 Dynamic modelling and stability analysis of power systems with neural ordinary differential equations 
 
 1. Overview
@@ -7,9 +10,14 @@ Explain the motivation for using machine-learning-based dynamic equivalents of a
 
 Kort (3-5 sætninger): hvad er projektet overordnet — en Neural ODE, der lærer den fysiske dynamik i et kraftsystem ud fra RAMSES-simulationer, plus værktøjer til at analysere om den lærte dynamik er fysisk fornuftig (fixed points, stabilitet).
 
-2. Requirements & Setup
-
-Python-version, nøgleafhængigheder (torchdiffeq, pytorch_optimizer, scipy, pyramses osv.), samt evt. link til requirements.txt/miljø-fil. Kort note om at scriptet kræver CUDA GPU til træning.
+## Requirements & Setup
+The project uses conda, therefor it is suggested to run the code through [Anaconda Navigator][Anaconda-url]. It is recommended to create a seperate environment in Anaconda for this model and belonging RAMSES-simulation.
+The projects key prerequisist are 
+  ```sh
+  pip install torch, torchdiffeq, pytorch_optimizer, scipy, pyramses
+  ```
+Furthermore the project requires a CUDA GPU, which can be aquired by connecting to DTU's [hpc][hpc-url].
+....
 
 
 3. Project structure
@@ -40,3 +48,8 @@ Samme opskrift: koncept kort, hvordan man kører det, hvordan man læser de to p
 9. Interpreting results / Troubleshooting
 
 En kort FAQ-agtig sektion: hvad betyder det, hvis fixed points ligger langt fra forventet start? Hvad betyder positive FTLE-værdier? Og evt. kendte faldgruber (CPU-thread-oversubscription, buffering på LSF, osv.), hvis I støder på dem igen og igen.
+
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[Anaconda-url]: https://www.anaconda.com/products/navigator
+[hpc-url]: https://www.hpc.dtu.dk/
