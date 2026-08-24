@@ -19,7 +19,7 @@ The projects key prerequisist are
   ```sh
   pip install torch, torchdiffeq, pytorch_optimizer, scipy, pyramses
   ```
-miniforge3 can be downloaded [here][mini-url]
+miniforge3 can be downloaded [here][mini-url].
 
 Furthermore the project requires a CUDA GPU, which can be aquired by connecting to DTU's [hpc][hpc-url].
 
@@ -38,6 +38,7 @@ Main/
 │   ├── data.dat                    # Distribution network configuration
 │   ├── LF.dat                      # Distribution network configuration
 │   ├── LFRESV                      # Distribution network configuration
+│   ├── artere.flag                 # Distribution network configuration
 │   ├── init.trace                  # Distribution network data
 │   ├── out.trace                   # Simulation results (overwritten per run)
 │   └── Sim.py                      # Simulates the distribution network with disturbances (Step 1)
@@ -79,6 +80,10 @@ The user can modify:
   ```
 
 ## Step 1 — Generating simulation data
+In Sim.py using RAMSES the input data for the NODE model is created. This scripts loads the network configured through data.dat, LF.dat and LFRESV. For this purpose a simple distribution network consisting of one bus with a load and a PV is constructed.
+
+First the distrubution network features are setup in data.dat, this entails operating voltage at bus, and load and PV specifications. 
+
 
 Hvad scriptet gør (kører RAMSES-simulationer med tilfældige disturbances, gemmer én samlet CSV), hvordan man kører det, hvad output er (all_simulation_timeseries.csv), og et par nøgleparametre man kan justere (N_SIMULATIONS, disturbance-ranges).
 Tilføj noget om data.dat og det nuværende netværk.
