@@ -36,9 +36,9 @@ Main/
 ├── RAMSES/                        # RAMSES simulation + distribution network
 │   ├── URAMSES-3.40c/              # RAMSES installation
 │   ├── data.dat                    # Distribution network configuration
-│   ├── LF.dat                      # Distribution network configuration
+│   ├── LF.dat                      # Distribution network configuration│
+|   ├── artere.flag                 # Distribution network configurator
 │   ├── LFRESV                      # Distribution network configuration
-│   ├── artere.flag                 # Distribution network configuration
 │   ├── init.trace                  # Distribution network data
 │   ├── out.trace                   # Simulation results (overwritten per run)
 │   └── Sim.py                      # Simulates the distribution network with disturbances (Step 1)
@@ -82,11 +82,20 @@ The user can modify:
 ## Step 1 — Generating simulation data
 In Sim.py using RAMSES the input data for the NODE model is created. This scripts loads the network configured through data.dat, LF.dat and LFRESV. For this purpose a simple distribution network consisting of one bus with a load and a PV is constructed.
 
-First the distrubution network features are setup in data.dat, this entails operating voltage at bus, and load and PV specifications. 
+First the distrubution network features are setup in data.dat, this entails operating voltage at bus, and load and PV specifications. Similarly LF.dat is constructed with bus specifications. Lastly to obtain the load flow of the system?? artere.flag calculates this and creates LFRESV (user names this files themselves through artere.flag), where the load flow data can be copied into data.dat e.g.
+  ```sh
+LFRESV N0 1.000000 0. ;
+LFRESV N1 0.9922389 -2.2979904E-02 ;
+  ```
+More on these files and the features presented in them can be read [here][stepss-url].
 
+Now the Sim.py script imports the constructed network and data and simulates the network dynamics through RAMSES. For the purpose of the project three disturbance types have been implemented:
+- Load step - changes the active and reactive power of the injector (L0). The active power (P_step) has the range [0-5], the reactive power (Q_step) has the range [(-2.0) - 2.0]. It has a ramping time in the range [0.02s - 0.2s]
+- Voltage fault - is applied to bus N1 as a fault with a non-zero impedance, which results in a voltage drop. The resistance R is in the range [0.001 - 0.05] and the reactance X is in the range [0.001 - 0.1]. It has a duration time of [0.05s - 1s]
+- Short circuit - fundementally the same as voltage fault, but R and X are so small that is resembles a short circuit. R and X ranges [0 - 0.005]. It has a duration time of [0.05s - 1s].
 
-Hvad scriptet gør (kører RAMSES-simulationer med tilfældige disturbances, gemmer én samlet CSV), hvordan man kører det, hvad output er (all_simulation_timeseries.csv), og et par nøgleparametre man kan justere (N_SIMULATIONS, disturbance-ranges).
-Tilføj noget om data.dat og det nuværende netværk.
+They all have a random starting time within 3s to 20s.
+The script creates N_SIMULATIONS and writes the output of the simulation in all_simulation_timeseries.csv.
 
 ## Step 2 — Training the model (NODE_PhysTime_AR.py)
 
@@ -109,3 +118,4 @@ En kort FAQ-agtig sektion: hvad betyder det, hvis fixed points ligger langt fra 
 [Anaconda-url]: https://www.anaconda.com/products/navigator
 [hpc-url]: https://www.hpc.dtu.dk/
 [mini-url]: https://conda-forge.org/download/
+[stepss-url]:https://drive.google.com/drive/folders/1oVPO0sc-3-jf_C9IgzafZQesf936TPQs
