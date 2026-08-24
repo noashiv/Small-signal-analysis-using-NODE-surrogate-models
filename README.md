@@ -98,8 +98,10 @@ They all have a random starting time within 3s to 20s.
 The script creates N_SIMULATIONS and writes the output of the simulation in all_simulation_timeseries.csv.
 
 ## Step 2 — Training the model (NODE_PhysTime_AR.py)
+A NODE (neural ordinary differential equation) model predicts the rate of change of the state dy/dt, given the current state y, the current exogenous inputs x(t), and the current time. The lpredicted rate of change is then integrated using an ODE solver (torchdiffeq) through actual timestamps to produce a predicted trajectory, which can be compared to the actual trajectory, produced in Sim.py, to compute the training loss. In this project the exogenous inputs x(t) are bus voltage, angle, and generator frequency and the state y is the active power flow thorugh the main transformer. Before the model can begin its training, data_utils.py loads the simulated data from Sim.py and prepares it in three steps: splitting, normalization and padding. The data is split into three sets of training, validation and test sets. The sets are constructed on whole simulations, where 30% of the simulations are in the test set, 70% is training where 15% of this is allocated to validation. Afterwards the data is Z-score normalized and padded to ensure equal length of the simulations. 
 
-Kort koncept: hvad er en Neural ODE her, hvorfor fysisk tid, hvad lærer netværket (dy/dt). Hvordan man kører det, vigtige config-parametre (HIDDEN_DIM, DEPTH, EPOCHS), og hvad output er (checkpoint.pt, predictions.csv).
+The model then starts its training on the training set, where it trains up to the amount of EPOCHS passes over the training data, alternating with a validation pass. Training ends as soon as the model has completed all training data with the given EPOCHS or when th validation loss stops improving by a certain amount given by early_stopping.py. early_stopping.py tracks the validation loss and stops once the loss doesnt improve by a meaningfull amount over a certain amount of epochs. This protects against overfitting and can shorten computation time. 
+
 
 ## Step 3 — Fixed-point analysis (fixed_points_physical_node.py)
 
