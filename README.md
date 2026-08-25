@@ -133,7 +133,7 @@ sweep every exogenous feature and time independdently across their full training
 For every accepted fixed point, its local stability is evaluated by computing the Jacobian of the learned dynamics with respect to the state at that point, and taking its eigenvalues. This captures how sensitive the predicted rate of change is to a small nudge away from y*. If the sign of the largest real part among these eigenvalues (the "spectral abscissa") is negative, the fixed point is stable; if positive, it is unstable.
 
 
-The output is written to /results/fixed points/ :
+The output is written to /results/fixed points/:
 - fixed_points_initial_condition.csv: all fixed points found near the runs' typical starting condition, including the distance to the actual initial state and its stability classification.
 - fixed_points_feature_time_sweep.csv: all fixed points found in analysis B.
 - fixed_points_sweep_conditions.csv: one row per swept condition (including conditions where zero fixed points were found).
@@ -144,10 +144,26 @@ This script has a fixedpoints.sh file that can be submitted to the DTU's hpc.
 
 
 ## Step 4 — Stability analysis (stability.py)
+The script stability.py analyzes along the network's predicted trajectories if the behavior is like a stable system or if it tends to amplify errors and pertubations over time. The script checks for stability in two ways both by computing the Jacobian eigenvalues. The first analysis checks for instantaneous stability at every single timestep. The Jacobian eigenvalues are computed at each recorded timestamp, which then indicates what would happen if a tine perturbation is introduced to the state at that exact moment. The analysis can only give a snapshot of the stability classification as it doesnt take the rest of the run into consideration. 
+The second check computes the finite-time Lyapunov exponents (FTLEs) over the whole run. Instead of looking at a single snapshot, this analysis asks what would happen to a perturbation introduced at the start of the run by the time it reaches the end. Here, the Jacobians computed across the run are chained together into a single state-transition matrix, and the run's overall stability is determined by how much that matrix stretches or shrinks perturbation vectors.
 
-Samme opskrift: koncept kort, hvordan man kører det, hvordan man læser de to plots (instantaneous spectral abscissa, FTLE-histogram) — evt. med et lille "sådan læser du dette plot"-afsnit, ligesom vi gennemgik.
+For every run in the dataset, the script:
+      1. Reconstructs the predicted NODE trajectory on the physical-time grid.
+      2. Computes the state Jacobian along that predicted trajectory.
+      3. Computes the instantaneous Jacobian eigenvalues, in 1/s.
+      4. Computes the full-run finite-time Lyapunov exponents, in 1/s.
+      5. Saves per-timestep values, per-run summaries, and two plots.
 
-9. Interpreting results / Troubleshooting
+The output is written to  results/stability/:
+- stability_eigenvalues.csv: per-timestep predictions, Jacobians, eigenvalues, and spectral abscissa for every run.
+- stability_ftle_by_run.csv: one row per run: duration, dominant FTLE, min/max spectral abscissa, and the fraction of the run's duration that looked locally stable.
+- stability_summary.csv: dataset-wide statistics on the dominant FTLE (mean, std, median, min, max, fraction negative).
+- stability_eigenvalues.png and stability_ftle.png: the instantaneous spectral abscissa over time and a histogram of each run's single dominant FTLE
+
+This script has a stability.sh file that can be submitted to the DTU's hpc.
+
+  
+## Interpreting results / Troubleshooting
 
 En kort FAQ-agtig sektion: hvad betyder det, hvis fixed points ligger langt fra forventet start? Hvad betyder positive FTLE-værdier? Og evt. kendte faldgruber (CPU-thread-oversubscription, buffering på LSF, osv.), hvis I støder på dem igen og igen.
 
