@@ -1,11 +1,26 @@
+<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
+<a id="readme-top"></a>
+<!--
+*** Thanks for checking out the Best-README-Template. If you have a suggestion
+*** that would make this better, please fork the repo and create a pull request
+*** or simply open an issue with the tag "enhancement".
+*** Don't forget to give the project a star!
+*** Thanks again! Now go create something AMAZING! :D
+-->
 # Small-signal-analysis-using-NODE-surrogate-models
 The introduction of distributed energy sources in the distribution network has increased the difficult of modelling such network with traditional physics-based simulators, as these energy sources often are nonlinear and difficult to characterize component-by-component. A practical alternative that doesnt require a full physical model, could be a learned dynamuc equivalent, that can reproduce a network's behavior once trained and predict how a network responds to disturbances. This is attractive for both real-time monotoring and large-scale grid studies.
 
-This project explores this opportunity by modelling a distribution network using a Neural Ordinary Differential Equation (NODE). NODE trains a network to predict the instantaneous rate of change of the system state, for a given current state, current exogenous inputs and time. 
-
+This project explores this opportunity by modelling a distribution network using a Neural Ordinary Differential Equation (NODE). NODE trains a network to predict the instantaneous rate of change of the system state, for a given current state, current exogenous inputs and time. The learned rate of change can then be integrated by an ODE solver, which produces a full predicted trajectory using the training data's actual timestamps. In this project the predicted trajectory is the active power flow through the main transformer of the network. The training data is created through RAMSES simulations of a designed distribution network with randomized distrubances applied. 
 
 ## Requirements & Setup
-All scripts have a .sh file, where path to environment, miniforge3 and script has to be updated to users paths. 
+All scripts have a .sh file, where path to environment, miniforge3 and script has to be updated to users paths, e.g. 
+  ```sh
+source /zhome/84/1/154964/miniforge3/etc/profile.d/conda.sh 
+
+conda activate /zhome/84/1/154964/miniforge3/envs/env_ram
+
+python -u /zhome/84/1/154964/RAMSES/NeuralODES/NODE_PhysTime_AR.py 
+  ```
 
 The project uses conda, therefor it is suggested to run the code through [Anaconda Navigator][Anaconda-url]. It is recommended to create a seperate environment in Anaconda for this model and belonging RAMSES-simulation.
 
@@ -19,10 +34,8 @@ The projects key prerequisist are
 Furthermore the project requires a CUDA GPU, which can be aquired by connecting to DTU's [hpc][hpc-url].
 
 
-
-
 ## Project structure
-The project consist of several scripts with their own purpose. 
+The project consist of several scripts that simulates the designed distribution network, train the NODE model and analyze the results of the model. 
   ```bash
 Main/
 ├── input_data.py                 # Central config: FEATURE_COLS, TARGET_COLS,
@@ -67,7 +80,7 @@ Main/
             └── stability_ftle.png
   ```
 ## Configuration — input_data.py
-To ensure unity and to simplify the user experience all central configuration are compiled in input_data.py and imported in all other scripts. 
+To ensure unity and to simplify the user experience all central configuration are compiled in `input_data.py` and imported in all necessary scripts. 
 The user can modify:
   ```sh
   FEATURE_COLS    # Input variables to NODE model
@@ -76,30 +89,32 @@ The user can modify:
   ```
 
 ## Step 1 — Generating simulation data
-In Sim.py using RAMSES the input data for the NODE model is created. This scripts loads the network configured through data.dat, LF.dat and LFRESV. For this purpose a simple distribution network consisting of one bus with a load and a PV is constructed.
+In Sim.py using RAMSES the input data for the NODE model is created. This scripts loads the network configured through data.dat, LF.dat and LFRESV. For this purpose a simple distribution network consisting of one bus with a load and a PV is designed.
 
-First the distrubution network features are setup in data.dat, this entails operating voltage at bus, and load and PV specifications. Similarly LF.dat is constructed with bus specifications. Lastly to obtain the load flow of the system?? artere.flag calculates this and creates LFRESV (user names this files themselves through artere.flag), where the load flow data can be copied into data.dat e.g.
+First the distrubution network features are setup in data.dat, this entails operating voltage at bus, and load and PV specifications. Similarly LF.dat is constructed with bus specifications. Lastly to obtain the load flow in the system artere.flag calculates this and creates LFRESV (user names this file themselves through artere.flag), where the load flow data can be copied into data.dat e.g.
   ```sh
 LFRESV N0 1.000000 0. ;
 LFRESV N1 0.9922389 -2.2979904E-02 ;
   ```
 More on these files and the features presented in them can be read [here][stepss-url].
 
-Now the Sim.py script imports the constructed network and data and simulates the network dynamics through RAMSES. For the purpose of the project three disturbance types have been implemented:
-- Load step - changes the active and reactive power of the injector (L0). The active power (P_step) has the range [0-5], the reactive power (Q_step) has the range [(-2.0) - 2.0]. It has a ramping time in the range [0.02s - 0.2s]
-- Voltage fault - is applied to bus N1 as a fault with a non-zero impedance, which results in a voltage drop. The resistance R is in the range [0.001 - 0.05] and the reactance X is in the range [0.001 - 0.1]. It has a duration time of [0.05s - 1s]
-- Short circuit - fundementally the same as voltage fault, but R and X are so small that is resembles a short circuit. R and X ranges [0 - 0.005]. It has a duration time of [0.05s - 1s].
+Now the Sim.py script imports the designed distribution network and data and simulates the network dynamics through RAMSES. For the purpose of the project three disturbance types have been implemented:
+- Load step: changes the active and reactive power of the injector (L0). The active power (P_step) has the range [0-5], the reactive power (Q_step) has the range [(-2.0) - 2.0]. It has a ramping time in the range [0.02s - 0.2s]
+- Voltage fault: is applied to bus N1 as a fault with a non-zero impedance, which results in a voltage drop. The resistance R is in the range [0.001 - 0.05] and the reactance X is in the range [0.001 - 0.1]. It has a duration time of [0.05s - 1s]
+- Short circuit: fundementally the same as voltage fault, but R and X are so small that is resembles a short circuit. R and X ranges [0 - 0.005]. It has a duration time of [0.05s - 1s].
 
-They all have a random starting time within 3s to 20s.
+They all have a random starting time between 3 to 20s.
+
 The script creates N_SIMULATIONS and writes the output of the simulation in all_simulation_timeseries.csv.
 
+It is possible to modify the design of the distribution network and the component specifications, you just have to update data.dat and LF.dat and run the simulation in Sim.py.
 
 This script has a Sim.sh file that can be submitted to the DTU's hpc.
 
 ## Step 2 — Training the model (NODE_PhysTime_AR.py)
-A NODE (neural ordinary differential equation) model predicts the rate of change of the state dy/dt, given the current state y, the current exogenous inputs x(t), and the current time. The lpredicted rate of change is then integrated using an ODE solver (torchdiffeq) through actual timestamps to produce a predicted trajectory, which can be compared to the actual trajectory, produced in Sim.py, to compute the training loss. In this project the exogenous inputs x(t) are bus voltage, angle, and generator frequency and the state y is the active power flow thorugh the main transformer. Before the model can begin its training, data_utils.py loads the simulated data from Sim.py and prepares it in three steps: splitting, normalization and padding. The data is split into three sets of training, validation and test sets. The sets are constructed on whole simulations, where 30% of the simulations are in the test set, 70% is training where 15% of this is allocated to validation. Afterwards the data is Z-score normalized and padded to ensure equal length of the simulations. 
+A NODE (neural ordinary differential equation) model predicts the rate of change of the state dy/dt, given the current state y, the current exogenous inputs x(t), and the current time. The predicted rate of change is then integrated using an ODE solver (torchdiffeq) through actual timestamps to produce a predicted trajectory, which can be compared to the actual trajectory (produced in Sim.py) to compute the training loss. In this project the exogenous inputs x(t) are bus voltage, angle, and generator frequency and the state y is the active power flow thorugh the main transformer. Before the model can begin its training, data_utils.py loads the simulated data from Sim.py and prepares it in three steps: splitting, normalization and padding. The data is split into three sets of training, validation and test sets. The sets are constructed on whole simulations, where 30% of the simulations are in the test set, 70% is training where 15% of this is allocated to validation. Afterwards the data is Z-score normalized and padded to ensure equal length of the simulations. 
 
-The model then starts its training on the training set, where it trains up to the amount of EPOCHS passes over the training data, alternating with a validation pass. Training ends as soon as the model has completed all training data with the given EPOCHS or when th validation loss stops improving by a certain amount given by early_stopping.py. early_stopping.py tracks the validation loss and stops once the loss doesnt improve by a meaningfull amount over a certain amount of epochs. This protects against overfitting and can shorten computation time. 
+The model then starts its training on the training set, where it trains up to the amount of EPOCHS passes over the training data, alternating with a validation pass. Training ends as soon as the model has completed all training data with the given EPOCHS or when the validation loss stops improving by a certain amount given by early_stopping.py. early_stopping.py tracks the validation loss and stops once the loss doesnt improve by a meaningful amount over a certain amount of epochs. This protects against overfitting and can shorten computation time. 
 
 The complexity of the neural network is configured through:
   ```sh
