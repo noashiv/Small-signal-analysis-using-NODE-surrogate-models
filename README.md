@@ -1,14 +1,8 @@
 # Small-signal-analysis-using-NODE-surrogate-models
-A power system can be constructed as a neural network, therefor to model the dynamics and perform a stability analysis, the power system is constructed as a neural network consisting of ordinary differential equations. This model will learn the physical dynamics of the given distribution network simulated with RAMSES and forecast the behavior of the main transformer power. To validate and analyse the forecast a small signal analysis is performed, which from analysization can tell if the learned dynamics are feasible and stable....
+The introduction of distributed energy sources in the distribution network has increased the difficult of modelling such network with traditional physics-based simulators, as these energy sources often are nonlinear and difficult to characterize component-by-component. A practical alternative that doesnt require a full physical model, could be a learned dynamuc equivalent, that can reproduce a network's behavior once trained and predict how a network responds to disturbances. This is attractive for both real-time monotoring and large-scale grid studies.
 
+This project explores this opportunity by modelling a distribution network using a Neural Ordinary Differential Equation (NODE). NODE trains a network to predict the instantaneous rate of change of the system state, for a given current state, current exogenous inputs and time. 
 
-Dynamic modelling and stability analysis of power systems with neural ordinary differential equations 
-
-1. Overview
-Dynamic modelling and stability analysis of power systems with neural ordinary differential equations.
-Explain the motivation for using machine-learning-based dynamic equivalents of active distribution networks.
-
-Kort (3-5 sætninger): hvad er projektet overordnet — en Neural ODE, der lærer den fysiske dynamik i et kraftsystem ud fra RAMSES-simulationer, plus værktøjer til at analysere om den lærte dynamik er fysisk fornuftig (fixed points, stabilitet).
 
 ## Requirements & Setup
 All scripts have a .sh file, where path to environment, miniforge3 and script has to be updated to users paths. 
