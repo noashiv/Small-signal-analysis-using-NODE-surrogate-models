@@ -121,7 +121,24 @@ The scripts writes the trained model's weights with architecture configuration a
 This script has a Training.sh file that can be submitted to DTU's hpc.
 
 ## Step 3 — Fixed-point analysis (fixedpoints.py)
-The script fixedpoints.py uses the output of the trained model's learned dynamics and searches for fixed points under frozen input x(t) and time conditions, this is where the model have predicted zero rate of change f(y*,x(t), t). The fixed points are evaluated by checking whether the model agrees that a run should start out stationary near its actual initial state or if it should drift elsewhere first and by sweeping across the models full training set and checking if equillibrium behavior looks physically sensible compared to the rest. For every found fixed point the Jacobian eigenvalues are computed to analyze its local stability. If the model has unrealistic or unstable fixed points, then the model has more likely learned a wrong dynamic. 
+The script fixedpoints.py uses the output of the trained model's learned dynamics and searches for fixed points under frozen input x(t) and time conditions, this is where the model have predicted zero rate of change f(y*,x(t), t). The fixed points are evaluated through two types of analysis, referred to as analysis A and B.
+
+Analysis A:
+Analyis A freezes the exogenous inputs, time and the expected state at their median initial values across the training runs, and searches for every distinct fixed point near the network's own state range. It then compares each fixed point found with the runs' actual initial condition (the real median starting value across all training runs). This tells if the networks' learned dynamic agrees that the run should start roughly near its initial state or if it thinks the system want to move elsewhere from the start.
+
+Analysis B:
+Analysis B sweep every exogenous feature and time independdently across their full training range and searches fir fixed point at every possible combination. This tells if the network's learned equilibrium behavior changes across the whole operating evelope it was trained on, rather than only at one fixed condition.
+
+
+For every accepted fixed point, its local stability is evaluated by computing the Jacobian of the learned dynamics with respect to the state at that point, and taking its eigenvalues. This captures how sensitive the predicted rate of change is to a small nudge away from y*. If the sign of the largest real part among these eigenvalues (the "spectral abscissa") is negative, the fixed point is stable; if positive, it is unstable.
+
+
+The output is written to /results/fixed points/ :
+- fixed_points_initial_condition.csv: all fixed points found near the runs' typical starting condition, including the distance to the actual initial state and its stability classification.
+- fixed_points_feature_time_sweep.csv: all fixed points found in analysis B.
+- fixed_points_sweep_conditions.csv: one row per swept condition (including conditions where zero fixed points were found).
+- fixed_point_summary.csv: includes total fixed points found in each analysis and stability classificaton
+- initial_condition_fixed_points.png: plot of the fixed points found at the initial condition including stability classification and actual start. 
 
 This script has a fixedpoints.sh file that can be submitted to the DTU's hpc.
 
