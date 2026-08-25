@@ -148,11 +148,11 @@ The script stability.py analyzes along the network's predicted trajectories if t
 The second check computes the finite-time Lyapunov exponents (FTLEs) over the whole run. Instead of looking at a single snapshot, this analysis asks what would happen to a perturbation introduced at the start of the run by the time it reaches the end. Here, the Jacobians computed across the run are chained together into a single state-transition matrix, and the run's overall stability is determined by how much that matrix stretches or shrinks perturbation vectors.
 
 For every run in the dataset, the script:
-      1. Reconstructs the predicted NODE trajectory on the physical-time grid.
-      2. Computes the state Jacobian along that predicted trajectory.
-      3. Computes the instantaneous Jacobian eigenvalues, in 1/s.
-      4. Computes the full-run finite-time Lyapunov exponents, in 1/s.
-      5. Saves per-timestep values, per-run summaries, and two plots.
+1. Reconstructs the predicted NODE trajectory on the physical-time grid.
+2. Computes the state Jacobian along that predicted trajectory.
+3. Computes the instantaneous Jacobian eigenvalues, in 1/s.
+4. Computes the full-run finite-time Lyapunov exponents, in 1/s.
+5. Saves per-timestep values, per-run summaries, and two plots.
 
 The output is written to  results/stability/:
 - stability_eigenvalues.csv: per-timestep predictions, Jacobians, eigenvalues, and spectral abscissa for every run.
