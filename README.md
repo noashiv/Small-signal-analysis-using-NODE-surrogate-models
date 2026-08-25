@@ -124,10 +124,10 @@ This script has a Training.sh file that can be submitted to DTU's hpc.
 The script fixedpoints.py uses the output of the trained model's learned dynamics and searches for fixed points under frozen input x(t) and time conditions, this is where the model have predicted zero rate of change f(y*,x(t), t). The fixed points are evaluated through two types of analysis, referred to as analysis A and B.
 
 Analysis A:
-Analyis A freezes the exogenous inputs, time and the expected state at their median initial values across the training runs, and searches for every distinct fixed point near the network's own state range. It then compares each fixed point found with the runs' actual initial condition (the real median starting value across all training runs). This tells if the networks' learned dynamic agrees that the run should start roughly near its initial state or if it thinks the system want to move elsewhere from the start.
+freezes the exogenous inputs, time and the expected state at their median initial values across the training runs, and searches for every distinct fixed point near the network's own state range. It then compares each fixed point found with the runs' actual initial condition (the real median starting value across all training runs). This tells if the networks' learned dynamic agrees that the run should start roughly near its initial state or if it thinks the system want to move elsewhere from the start.
 
 Analysis B:
-Analysis B sweep every exogenous feature and time independdently across their full training range and searches fir fixed point at every possible combination. This tells if the network's learned equilibrium behavior changes across the whole operating evelope it was trained on, rather than only at one fixed condition.
+sweep every exogenous feature and time independdently across their full training range and searches fir fixed point at every possible combination. This tells if the network's learned equilibrium behavior changes across the whole operating evelope it was trained on, rather than only at one fixed condition.
 
 
 For every accepted fixed point, its local stability is evaluated by computing the Jacobian of the learned dynamics with respect to the state at that point, and taking its eigenvalues. This captures how sensitive the predicted rate of change is to a small nudge away from y*. If the sign of the largest real part among these eigenvalues (the "spectral abscissa") is negative, the fixed point is stable; if positive, it is unstable.
