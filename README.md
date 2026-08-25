@@ -130,7 +130,7 @@ The scripts writes the trained model's weights with architecture configuration a
 This script has a `Training.sh` file that can be submitted to DTU's hpc.
 
 ## Step 3 — Fixed-point analysis (fixedpoints.py)
-The script `fixedpoints.py` uses the output of the trained model's learned dynamics and searches for fixed points under frozen input $x(t)$ and time conditions, this is where the model have predicted zero rate of change $f(y*,x(t), t)$. The fixed points are evaluated through two types of analysis, referred to as analysis A and B.
+The script `fixedpoints.py` uses the output of the trained model's learned dynamics and searches for fixed points under frozen input $x(t)$ and time conditions, this is where the model have predicted zero rate of change $f(y^*,x(t), t)$. The fixed points are evaluated through two types of analysis, referred to as analysis A and B.
 
 Analysis A:
 freezes the exogenous inputs, time and the expected state at their median initial values across the training runs, and searches for every distinct fixed point near the network's own state range. It then compares each fixed point found with the runs' actual initial condition (the real median starting value across all training runs). This tells if the networks' learned dynamic agrees that the run should start roughly near its initial state or if it thinks the system want to move elsewhere from the start.
