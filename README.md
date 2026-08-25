@@ -15,11 +15,12 @@ All scripts have a .sh file, where path to environment, miniforge3 and script ha
 
 The project uses conda, therefor it is suggested to run the code through [Anaconda Navigator][Anaconda-url]. It is recommended to create a seperate environment in Anaconda for this model and belonging RAMSES-simulation.
 
+Miniforge3 can be downloaded [here][mini-url].
+
 The projects key prerequisist are 
   ```sh
   pip install torch, torchdiffeq, pytorch_optimizer, scipy, pyramses
   ```
-miniforge3 can be downloaded [here][mini-url].
 
 Furthermore the project requires a CUDA GPU, which can be aquired by connecting to DTU's [hpc][hpc-url].
 
@@ -30,32 +31,33 @@ Furthermore the project requires a CUDA GPU, which can be aquired by connecting 
 The project consist of several scripts with their own purpose. 
   ```bash
 Main/
-├── input_data.py                  # Central config: FEATURE_COLS, TARGET_COLS,
-│                                   #   DATA_PATH, OUTPUT_DIR, RAMSES_PATH, MODEL_PATH
+├── input_data.py                 # Central config: FEATURE_COLS, TARGET_COLS,
+│                                 #   DATA_PATH, OUTPUT_DIR, RAMSES_PATH, MODEL_PATH
 │
 ├── RAMSES/                        # RAMSES simulation + distribution network
-│   ├── URAMSES-3.40c/              # RAMSES installation
-│   ├── data.dat                    # Distribution network configuration
-│   ├── LF.dat                      # Distribution network configuration│
-|   ├── artere.flag                 # Distribution network configurator
-│   ├── LFRESV                      # Distribution network configuration
-│   ├── init.trace                  # Distribution network data
-│   ├── out.trace                   # Simulation results (overwritten per run)
-│   └── Sim.py                      # Simulates the distribution network with disturbances (Step 1)
+│   ├── URAMSES-3.40c/             # RAMSES installation
+│   ├── data.dat                   # Distribution network configuration
+│   ├── LF.dat                     # Distribution network configuration│
+|   ├── artere.flag                # Distribution network configurator
+│   ├── LFRESV                     # Distribution network configuration
+│   ├── init.trace                 # Distribution network data
+│   ├── out.trace                  # Simulation results (overwritten per run)
+│   └── Sim.py                     # Simulates the distribution network with disturbances (Step 1)
 │
-└── NeuralODES/                    # Neural ODE pipeline (_ROOT.parent in all scripts)
+└── NeuralODES/                      # Neural ODE pipeline (_ROOT.parent in all scripts)
     ├── data_utils.py                # load_and_normalise_and_split_data()
     ├── early_stopping.py            # EarlyStopping class
     ├── NODE_PhysTime_AR.py          # NODE model + training → checkpoint.pt   (Step 2)
-    ├── fixedpoints.py                # Fixed-point analysis                   (Step 3)
-    ├── stability.py                  # Stability analysis (Jacobian/FTLE)     (Step 4)
+    ├── fixedpoints.py               # Fixed-point analysis                   (Step 3)
+    ├── stability.py                 # Stability analysis (Jacobian/FTLE)     (Step 4)
+    ├── plotting.py                  # Plotting of input data and results
     │
     ├── data/
     │   └── all_simulation_timeseries.csv   # Simulation data ← DATA_PATH points here
     │
     └── results/                            # ← OUTPUT_DIR points here
         ├── NODE_PhysTime_AR/
-        │   ├── checkpoint.pt                 # ← MODEL_PATH points here
+        │   ├── checkpoint.pt               # ← MODEL_PATH points here
         │   └── predictions.csv
         ├── fixed points/
         │   ├── fixed_points_initial_condition.csv
@@ -97,6 +99,9 @@ Now the Sim.py script imports the constructed network and data and simulates the
 They all have a random starting time within 3s to 20s.
 The script creates N_SIMULATIONS and writes the output of the simulation in all_simulation_timeseries.csv.
 
+
+This script has a Sim.sh file that can be submitted to the DTU's hpc.
+
 ## Step 2 — Training the model (NODE_PhysTime_AR.py)
 A NODE (neural ordinary differential equation) model predicts the rate of change of the state dy/dt, given the current state y, the current exogenous inputs x(t), and the current time. The lpredicted rate of change is then integrated using an ODE solver (torchdiffeq) through actual timestamps to produce a predicted trajectory, which can be compared to the actual trajectory, produced in Sim.py, to compute the training loss. In this project the exogenous inputs x(t) are bus voltage, angle, and generator frequency and the state y is the active power flow thorugh the main transformer. Before the model can begin its training, data_utils.py loads the simulated data from Sim.py and prepares it in three steps: splitting, normalization and padding. The data is split into three sets of training, validation and test sets. The sets are constructed on whole simulations, where 30% of the simulations are in the test set, 70% is training where 15% of this is allocated to validation. Afterwards the data is Z-score normalized and padded to ensure equal length of the simulations. 
 
@@ -113,12 +118,15 @@ The complexity of the neural network is configured through:
   ```
 The scripts writes the trained model's weights with architecture configuration and normalized statistics to checkpoint.pt, and the predictions on the test set along with the actual data to predictions.csv
 
+This script has a Training.sh file that can be submitted to DTU's hpc.
 
-## Step 3 — Fixed-point analysis (fixed_points_physical_node.py)
+## Step 3 — Fixed-point analysis (fixedpoints.py)
+The script fixedpoints.py uses the output of the trained model's learned dynamics and searches for fixed points under frozen input x(t) and time conditions, this is where the model have predicted zero rate of change f(y*,x(t), t). The fixed points are evaluated by checking whether the model agrees that a run should start out stationary near its actual initial state or if it should drift elsewhere first and by sweeping across the models full training set and checking if equillibrium behavior looks physically sensible compared to the rest. For every found fixed point the Jacobian eigenvalues are computed to analyze its local stability. If the model has unrealistic or unstable fixed points, then the model has more likely learned a wrong dynamic. 
 
-Konceptet i 3-4 sætninger (som vi formulerede tidligere: finder ligevægtspunkter modellen har lært, tjekker om de er fysisk fornuftige og stabile). Hvordan man kører det (kræver et trænet checkpoint), hvad output-filerne betyder.
+This script has a fixedpoints.sh file that can be submitted to the DTU's hpc.
 
-## Step 4 — Stability analysis (stability_physical_node.py)
+
+## Step 4 — Stability analysis (stability.py)
 
 Samme opskrift: koncept kort, hvordan man kører det, hvordan man læser de to plots (instantaneous spectral abscissa, FTLE-histogram) — evt. med et lille "sådan læser du dette plot"-afsnit, ligesom vi gennemgik.
 
