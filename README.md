@@ -184,8 +184,8 @@ This script has a `stability.sh` file that can be submitted to the DTU's hpc.
 
   
 ## Interpreting results / Troubleshooting
+For visualizing results andanalyze the data, a plotting script has been created. This script both creates plots to vizualise the distribution of the input variables, the results of the trained model, the model performance, statistics of the predictions, fixed point analysis and stability analysis.
 
-En kort FAQ-agtig sektion: hvad betyder det, hvis fixed points ligger langt fra forventet start? Hvad betyder positive FTLE-værdier? Og evt. kendte faldgruber (CPU-thread-oversubscription, buffering på LSF, osv.), hvis I støder på dem igen og igen.
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
