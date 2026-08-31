@@ -116,6 +116,11 @@ A NODE (neural ordinary differential equation) model predicts the rate of change
 
 The model then starts its training on the training set, where it trains up to the amount of EPOCHS passes over the training data, alternating with a validation pass. Training ends as soon as the model has completed all training data with the given EPOCHS or when the validation loss stops improving by a certain amount given by `early_stopping.py`. `early_stopping.py` tracks the validation loss and stops once the loss doesnt improve by a meaningful amount over a certain amount of epochs. This protects against overfitting and can shorten computation time. 
 
+<br />
+<div align="center">
+    <img src="images/Sk" alt="Logo" width="80" height="80">
+
+
 The complexity of the neural network is configured through:
   ```sh
   HIDDEN_DIM    # Width of each hidden layer in the ODE's right-hand-side network
