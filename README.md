@@ -116,10 +116,9 @@ A NODE (neural ordinary differential equation) model predicts the rate of change
 
 The model then starts its training on the training set, where it trains up to the amount of EPOCHS passes over the training data, alternating with a validation pass. Training ends as soon as the model has completed all training data with the given EPOCHS or when the validation loss stops improving by a certain amount given by `early_stopping.py`. `early_stopping.py` tracks the validation loss and stops once the loss doesnt improve by a meaningful amount over a certain amount of epochs. This protects against overfitting and can shorten computation time. 
 
-<br />
-<div align="center">
-    <img src="images/NODE_train.png" alt="Training diagram" width="80" height="80">
-
+<p align="center">
+  <img src="images/NODE_train.png" alt="Training diagram" width="800" height="800">
+</p>
 
 The complexity of the neural network is configured through:
   ```sh
@@ -146,6 +145,9 @@ sweep every exogenous feature and time independdently across their full training
 
 For every accepted fixed point, its local stability is evaluated by computing the Jacobian of the learned dynamics with respect to the state at that point, and taking its eigenvalues. This captures how sensitive the predicted rate of change is to a small nudge away from $y*$. If the sign of the largest real part among these eigenvalues (the "spectral abscissa") is negative, the fixed point is stable; if positive, it is unstable.
 
+<p align="center">
+  <img src="images/fixed_point.png" alt="fixed point diagram" width="800" height="800">
+</p>
 
 The output is written to /results/fixed points/:
 - `fixed_points_initial_condition.csv`: all fixed points found near the runs' typical starting condition, including the distance to the actual initial state and its stability classification.
@@ -160,6 +162,10 @@ This script has a `fixedpoints.sh` file that can be submitted to the DTU's hpc.
 ## Step 4 — Stability analysis (stability.py)
 The script `stability.py` analyzes along the network's predicted trajectories if the behavior is like a stable system or if it tends to amplify errors and pertubations over time. The script checks for stability in two ways both by computing the Jacobian eigenvalues. The first analysis checks for instantaneous stability at every single timestep. The Jacobian eigenvalues are computed at each recorded timestamp, which then indicates what would happen if a tine perturbation is introduced to the state at that exact moment. The analysis can only give a snapshot of the stability classification as it doesnt take the rest of the run into consideration. 
 The second check computes the finite-time Lyapunov exponents (FTLEs) over the whole run. Instead of looking at a single snapshot, this analysis asks what would happen to a perturbation introduced at the start of the run by the time it reaches the end. Here, the Jacobians computed across the run are chained together into a single state-transition matrix, and the run's overall stability is determined by how much that matrix stretches or shrinks perturbation vectors.
+
+<p align="center">
+  <img src="images/stability.png" alt="stability diagram" width="800" height="800">
+</p>
 
 For every run in the dataset, the script:
 1. Reconstructs the predicted NODE trajectory on the physical-time grid.
