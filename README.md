@@ -118,7 +118,7 @@ The model then starts its training on the training set, where it trains up to th
 
 <br />
 <div align="center">
-    <img src="images/Sk" alt="Logo" width="80" height="80">
+    <img src="images/NODE_train.png" alt="Training diagram" width="80" height="80">
 
 
 The complexity of the neural network is configured through:
