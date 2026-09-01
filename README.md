@@ -55,9 +55,9 @@ Main/
     ├── data_utils.py                # load_and_normalise_and_split_data()
     ├── early_stopping.py            # EarlyStopping class
     ├── NODE_PhysTime_AR.py          # NODE model + training → checkpoint.pt   (Step 2)
-    ├── fixedpoints.py               # Fixed-point analysis                   (Step 3)
-    ├── stability.py                 # Stability analysis (Jacobian/FTLE)     (Step 4)
-    ├── plotting.py                  # Plotting of input data and results
+    ├── fixedpoints.py               # Fixed-point analysis                    (Step 3)
+    ├── stability.py                 # Stability analysis (Jacobian/FTLE)      (Step 4)
+    ├── plot_results.py              # Plotting of input data and results      (Step 5)
     │
     ├── data/
     │   └── all_simulation_timeseries.csv   # Simulation data ← DATA_PATH points here
@@ -85,8 +85,12 @@ The user can modify:
   ```sh
   FEATURE_COLS    # Input variables to NODE model
   TARGET_COLS     # Target of NODE model
-  DATA_PATH, OUTPUT_DIR, RAMSES_PATH, MODEL_PATH  #Paths to the various results or model configurations
+  N_SIMULATIONS   # Nr. of simulations RAMSES generates
+  EPOCHS          # Max number of training epochs (early stopping may end it sooner)
+  RAMSES_PATH     # Path to RAMSES installation <--- THIS HAS TO BE REDIFNED TO SPECIFIC USER
+  DATA_PATH, OUTPUT_DIR, MODEL_PATH  #Paths to the various results or model configurations
   ```
+IMPORTANT NOTE: Change the RAMSES path to the location of your "URAMSES-3.40c/Release_intel_w64".
 
 ## Step 1 — Generating simulation data
 In `Sim.py` using RAMSES the input data for the NODE model is created. This scripts loads the network configured through `data.dat`, `LF.dat` and `LFRESV`. For this purpose a simple distribution network consisting of one bus with a load and a PV is designed.
@@ -182,9 +186,37 @@ The output is written to  results/stability/:
 
 This script has a `stability.sh` file that can be submitted to the DTU's hpc.
 
-  
-## Interpreting results / Troubleshooting
-For visualizing results andanalyze the data, a plotting script has been created. This script both creates plots to vizualise the distribution of the input variables, the results of the trained model, the model performance, statistics of the predictions, fixed point analysis and stability analysis.
+
+## Step 4 — Interpreting results (plot_results.py)
+This script generates plots covering the distribution of input variables, trained model results, model performance, prediction statistics, and the
+fixed-point and stability analysis results.
+
+It can be run as a typical python script.
+
+```bash
+python plot_results.py
+```
+
+Example output — an overlay of prediction vs actual:
+INDSÆT
+
+This gives an indication of how well the model captures the trends the different disturbances creates and thereby an indication of its performance
+
+
+Example of fixed point heatmap
+The fixed point analysis helps determine the stability of the model through "operating points". The heatmap helps analyze where the model is stable and where unstability occure. 
+INDSÆT
+
+
+Example of stability FTLE histogram
+To further analyze the performance and stability of the trained model, the models FTLEs are computed through the stability analysis. These summarize how a small perturbation introduced at the start of the run would have grown or shrunk by its end, accounting for the changing dynamics throughout. The x-axis gives the dominant FTLE in 1 over seconds; the dashed line at zero marks the stability boundary — values to the left mean perturbations decayed on average over the run, so stable; values to the right mean they grew, so unstable.
+INDSÆT
+
+##  Troubleshooting
+Paths may have to be changed to your specific path. Please read the note under Configuration. 
+
+RAMSES can run out of memory, therefor it is not possible to create infinte amount of training data. 
+
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
