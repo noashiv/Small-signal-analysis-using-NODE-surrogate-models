@@ -22,6 +22,7 @@ Requires a CUDA-capable GPU.
 # ============================================================
 # SINGLE-CELL REAL-TIME NEURAL ODE PIPELINE
 # ============================================================
+
 from pathlib import Path
 import os
 import sys
@@ -37,22 +38,16 @@ import torch.nn as nn
 # gradients via the "adjoint method" instead of storing every solver step.
 # That makes backprop through long integrations much cheaper on GPU memory.
 # I addded this for an experiement it might not be for the best but I will review it myself
-
-_ROOT = Path(__file__).resolve().parent.parent  
-sys.path.insert(0, str(_ROOT))
 from torchdiffeq import odeint_adjoint as odeint
-from input_data import TARGET_COLS, FEATURE_COLS, DATA_PATH, OUTPUT_DIR
 
+import sys
 # ROOT defines the script's own home folder. data_utils.py and early_stopping.py live right
 # next to it, so we just need this directory on the import path.
-
-# Sørg for at mappen findes
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-RESULTS_CSV = os.path.join(OUTPUT_DIR, "NODE_PhysTime_AR","predictions.csv")
-
+_ROOT = Path(__file__).resolve().parent.parent  
+sys.path.insert(0, str(_ROOT))
 from early_stopping import EarlyStopping
-from data_utils import load_and_normalise_and_split_data
+from input_data import TARGET_COLS, FEATURE_COLS, DATA_PATH, OUTPUT_DIR, EPOCHS
+from data_utils2 import load_and_normalise_and_split_data
 from pytorch_optimizer import SOAP  # This is the optimiser we use. I found SOAP worked really well for me but feel free to change it
 
 # ============================================================
@@ -71,10 +66,10 @@ DEVICE = torch.device("cuda")
 HIDDEN_DIM = 128   # width of each hidden layer in the ODE's right-hand-side network
 DEPTH = 4          # number of hidden layers
 LR = 1e-3          # learning rate (note: SOAP below is constructed with its own lr=1e-3 too)
-EPOCHS = 10       # max number of training epochs (early stopping may end it sooner)
 BATCH_SIZE = None  # computed below from free GPU memory, once data is loaded
 METHOD = "rk4"     # fixed-step Runge-Kutta 4 ODE solver
 
+OUT_PATH = os.path.join(_ROOT, "results", "NODE_PhysTime_AR", "predictions.csv")
 
 torch.manual_seed(SEED)
 np.random.seed(SEED)
@@ -87,18 +82,17 @@ np.random.seed(SEED)
 # leaks across splits), and z-score normalizes features/target using
 # TRAIN-only statistics. See data_utils.py for the full breakdown.
 data = load_and_normalise_and_split_data(
-    csv_paths=DATA_PATH,
+    csv_path=DATA_PATH,
     feature_cols=FEATURE_COLS,
     target_col=TARGET_COLS,
-    run_col="simulation_id",
-    time_col="time_s",
     device=DEVICE,
-    #seed=SEED,
-    #train_fraction=0.70,
-    #val_fraction=0.15,
 )
 
 train_ids = data["train_ids"]
+
+
+
+
 
 # Pick the largest batch size that comfortably fits in free GPU memory.
 # The formula estimates "bytes needed per run" and divides available
@@ -241,6 +235,7 @@ def stack_all_runs(run_ids):
         lengths.append(L)
 
         pad = max_len - L
+       
         if pad > 0:
             # Repeat the last real feature/target value to fill the tail.
             # feat[-1:] is the final row, shape (1, F); .expand(pad, -1)
@@ -250,7 +245,7 @@ def stack_all_runs(run_ids):
             # just need to exist so every run in the batch has the same
             # length T for stacking into one tensor.
             feat = torch.cat([feat, feat[-1:].expand(pad, -1)], 0)
-            y = torch.cat([y, y[-1:].expand(pad, -1)], 0)
+            y    = torch.cat([y, y[-1:].expand(pad,)], 0)
             # The time axis can't just repeat the last timestamp (the ODE
             # solver requires strictly increasing times). Instead we
             # compute this run's average step size — total span
@@ -269,13 +264,13 @@ def stack_all_runs(run_ids):
         feats.append(feat.unsqueeze(1))
         ys.append(y.unsqueeze(1))
         ts.append(t.unsqueeze(1))
-        y0s.append(y[0:1])
+        y0s.append(y[0:1].unsqueeze(-1))
 
     feat = torch.cat(feats, 1)   # (T,B,F)
     y    = torch.cat(ys, 1)      # (T,B)
     t    = torch.cat(ts, 1)      # (T,B)
     y0   = torch.cat(y0s, 0)     # (B,1)
-
+    
     # Build the real-vs-padding mask from each run's original length.
     mask = torch.zeros_like(y)
     for b, L in enumerate(lengths):
@@ -359,16 +354,17 @@ class NeuralODEFunc(nn.Module):
     """
 
     # This function constructs the network to be of the size we defined in the parameters section at the top of the script.
-    def __init__(self, nx, hidden_dim, depth, state_dim=1):
+    def __init__(self, nx, hidden_dim, depth):
         super().__init__()
         layers = []
-        in_dim = nx + state_dim + 1  # x + y + t_norm
+        in_dim = nx + 1 + 1  # x + y + t_norm
+
         for _ in range(depth):
             layers += [nn.Linear(in_dim, hidden_dim), nn.Tanh()]
             in_dim = hidden_dim
-        layers.append(nn.Linear(hidden_dim, state_dim))
+
+        layers.append(nn.Linear(hidden_dim, 1))
         self.net = nn.Sequential(*layers)
-        self.state_dim = state_dim
 
 
 # Combine the current input features x(t), the current state y,
@@ -414,7 +410,7 @@ class ODEWrapper(nn.Module):
         # the trailing size-1 dimension the network expects (shape (B,1)).
         t_norm = t_norm.reshape(-1).expand(B).unsqueeze(-1)
         return self.func(y, x_t, t_norm)
-    # This might seem confusing but basically its just saying weNTraining pass an indexed time variable as a feature to the NN
+    # This might seem confusing but basically its just saying we pass an indexed time variable as a feature to the NN
     # But it is important to remember we a re integrating through physical time values. 
 
 
@@ -425,13 +421,12 @@ class ODEWrapper(nn.Module):
 model = NeuralODEFunc(
     nx=len(FEATURE_COLS),
     hidden_dim=HIDDEN_DIM,
-    depth=DEPTH,
-    state_dim=len(TARGET_COLS),
+    depth=DEPTH
 ).to(DEVICE)
 functorch_config.donated_buffer = False  # required for torch.compile to play nicely with the adjoint ODE solver, I dont understand it
 #model = torch.compile(model, dynamic=True)  # pre complies the network for faster GPU execution, I dont understand it but it works and makes training faster.
 
-optimizer = SOAP(model.parameters(), lr=1e-3, betas=(0.95, 0.95), weight_decay=1e-2, precondition_frequency=10) # these are the recommend values for SOAP i found on the authors github
+optimizer = SOAP(model.parameters(), lr=1e-3, betas=(0.95, 0.95), weight_decay=1e-4, precondition_frequency=10) # these are the recommend values for SOAP i found on the authors github
 scaler = torch.amp.GradScaler("cuda")  # scales gradients to avoid float16 underflow during mixed-precision training
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode="min", factor=0.5, patience=50, min_lr=1e-9
@@ -464,15 +459,15 @@ Xva, yva, tva, y0va, maskva = stack_all_runs(val_ids)
 # Checkpoint metadata (built once, reused by every save below)
 # ============================================================
 
-CKPT_DIR = os.path.dirname(RESULTS_CSV)
+CKPT_DIR = os.path.dirname(OUT_PATH)
 os.makedirs(CKPT_DIR, exist_ok=True)
 CKPT_PATH = os.path.join(CKPT_DIR, "checkpoint.pt")
 
 MODEL_CONFIG = {"nx": len(FEATURE_COLS), "hidden_dim": HIDDEN_DIM, "depth": DEPTH, "method": METHOD}
 NORM_STATS = {
     "X_mean": X_mean.tolist(), "X_std": X_std.tolist(),
-    "y_mean": y_mean.tolist(), "y_std": y_std.tolist(),
-    "feature_cols": FEATURE_COLS, "target_cols": TARGET_COLS,
+    "y_mean": float(y_mean), "y_std": float(y_std),
+    "feature_cols": FEATURE_COLS, "target_col": TARGET_COLS,
 }
 # Static description of how the ODE is set up, saved alongside the final
 # checkpoint so a later inference script can reconstruct the pipeline
@@ -498,7 +493,6 @@ INTEGRATION_INFO = {
 # ============================================================
 # Training loop
 # ============================================================
-
 
 def run_epoch(X, y, t, y0, mask, train=True):
     """
@@ -558,7 +552,7 @@ def run_epoch(X, y, t, y0, mask, train=True):
         # validation to save memory and computation.
         with torch.set_grad_enabled(train):
             # Use mixed-precision arithmetic for faster GPU execution.
-            with torch.autocast(device_type="cuda", enabled=False):
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 # Build an interpolator that can estimate x(t) at arbitrary
                 # times requested by the ODE solver.
                 interp = BatchedLinearInterpolator(tb, Xb)
@@ -569,7 +563,12 @@ def run_epoch(X, y, t, y0, mask, train=True):
                 # Starting from y0b, the solver repeatedly evaluates dy/dt and
                 # integrates forward to produce a predicted trajectory for
                 # every run in the batch.
-                y_pred = odeint(ode, y0b, tb[:, 0], method=METHOD, options={"step_size": 0.01})
+                y_pred = odeint(
+                    ode,
+                    y0b,
+                    tb[:, 0],
+                    method=METHOD, options={"step_size": 0.001}
+                ).squeeze(-1)
                 # Compare the predicted and true trajectories while ignoring
                 # padded timesteps using the mask.
                 loss = masked_mse(y_pred, yb, mb)
@@ -596,7 +595,7 @@ for epoch in range(EPOCHS):
     scheduler.step(val_loss)  # decay LR if val_loss hasn't improved recently
 
 
-    if epoch % 1 == 0:
+    if epoch % 10 == 0:
         print(
             f"Epoch {epoch:04d} | "
             f"Train {train_loss:.6e} | "
@@ -649,7 +648,7 @@ model.eval()
 with torch.inference_mode():
     for rid in test_ids:
         feat = normalized_runs[rid]["feat"]
-        y0   = normalized_runs[rid]["y"][0:1]
+        y0   = normalized_runs[rid]["y"][0:1].unsqueeze(-1)
         t    = normalized_runs[rid]["t"]
 
         interp = BatchedLinearInterpolator(
@@ -657,24 +656,25 @@ with torch.inference_mode():
         )
         ode = ODEWrapper(model, interp, t[0], t[-1])
 
-        y_pred = odeint(ode, y0b, tb[:, 0], method=METHOD, options={"step_size": 0.01})[:, 0, :] 
+        y_pred = odeint(
+            ode,
+            y0,
+            t,
+            method=METHOD, options={"step_size": 0.001}
+        ).squeeze()
 
         # Undo the z-score normalization applied during data loading.
         y_pred_np = y_pred.cpu().numpy() * y_std + y_mean
         t_np      = t.cpu().numpy()
         y_true    = run_groups[rid][TARGET_COLS].values
         L = min(len(t_np), len(y_true))
-        row_data = {
-        "simulation_id": str(rid),
-        "time_s": t_np[:L],
-    }
-
-        for j, col_name in enumerate(TARGET_COLS):
-            row_data[f"actual_{col_name}"] = y_true[:L, j]
-            row_data[f"predicted_{col_name}"] = y_pred_np[:L, j]
-
-        dfs.append(pd.DataFrame(row_data))
+        dfs.append(pd.DataFrame({
+            "simulation_id": int(rid),
+            "time_s": t_np[:L],
+            "actual": y_true[:L],
+            "predicted": y_pred_np[:L],
+        }))
 
 out_df = pd.concat(dfs, ignore_index=True)
-out_df.to_csv(RESULTS_CSV, index=False)
-print(f"[SAVE] predictions → {RESULTS_CSV}  ({len(out_df)} rows)")
+out_df.to_csv(OUT_PATH, index=False)
+print(f"[SAVE] predictions → {OUT_PATH}  ({len(out_df)} rows)")
