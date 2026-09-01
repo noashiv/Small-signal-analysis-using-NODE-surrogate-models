@@ -1,6 +1,6 @@
 # data_utils.py
 """
-Loads a parquet file of simulation "runs" (each run = a run_id with a time
+Loads a csv file of simulation "runs" (each run = a run_id with a time
 series of feature/target rows), computes a per-row time-delta (dt) feature,
 splits runs into train/val/test sets (by whole run, so no run ever appears
 in two splits), and z-score normalizes everything using TRAIN-only
@@ -10,13 +10,11 @@ statistics (so val/test never leak information into the normalization).
 import pandas as pd
 import numpy as np
 import torch
-import os
 from sklearn.model_selection import train_test_split
-import sys
 
 
 def load_and_normalise_and_split_data(
-    csv_paths,
+    csv_path,
     feature_cols,
     target_col,
     random_state=42,
@@ -27,10 +25,14 @@ def load_and_normalise_and_split_data(
     dt_col_name="dt",           # raw dt column name in the returned df
     dt_norm_col_name="dt_norm", # normalized dt column name in the returned df
     dt_last_sample=None,        # value to use for a run's last dt (no "next" row to diff against); None => 0.0
-    run_col="run_id",
+    run_col="simulation_id",
     time_col="time_s",
 ):
     """
+    Load CSV, compute FORWARD-aligned dt per run, create both raw `dt` and z-scored
+    `dt_norm` (using TRAIN-only stats), then normalize other features with TRAIN-only z-score.
+    Any of ["dt", "dt_norm"] may be included in `feature_cols` (even both).
+
     Returns:
       - split IDs, per-split tensors, per-run tensors
       - df with computed dt & dt_norm
@@ -38,20 +40,19 @@ def load_and_normalise_and_split_data(
       - y_mean/y_std
       - echo of feature_cols and passthrough_cols
     """
-  
+
+
     # ----------------------------------------------------------------------
     # 1) Read parquet WITHOUT dt/dt_norm (we compute them here, so they
     #    won't exist as real columns in the file even if requested as features)
     # ----------------------------------------------------------------------
     requested_no_dt = [c for c in feature_cols if c not in (dt_col_name, dt_norm_col_name)]
     use_cols = [run_col, time_col] + list(requested_no_dt) + target_col
-    df = pd.read_csv(csv_paths, usecols=use_cols)
-
+    df = pd.read_csv(csv_path, usecols=use_cols)
     # ----------------------------------------------------------------------
     # 2) Sort to ensure time diffs are correct
     # ----------------------------------------------------------------------
     df = df.sort_values([run_col, time_col])
-
     # Remove duplicate timestamps within each simulation.
     # Keep the last occurrence if the same simulation has the same timestamp twice.
     n_duplicates = df.duplicated(
@@ -59,7 +60,7 @@ def load_and_normalise_and_split_data(
     ).sum()
 
     if n_duplicates > 0:
-        print(f"[INFO] Removing {n_duplicates} duplicate timestamps.")
+        print(f"Removed {n_duplicates} of {len(df)} total rows ({100*n_duplicates/len(df):.2f}%)")
         df = df.drop_duplicates(
             subset=[run_col, time_col],
             keep="first"
@@ -69,11 +70,6 @@ def load_and_normalise_and_split_data(
 
     n_before = len(df)
     df = df.dropna(subset=required_cols).reset_index(drop=True)
-
-    print(
-        f"[INFO] Removed {n_before - len(df)} rows "
-        f"with missing values."
-    )
     # Convert datetime-like time to numeric seconds for diff/normalization stability.
     if np.issubdtype(df[time_col].dtype, np.datetime64):
         # nanoseconds -> seconds (float)
@@ -190,7 +186,7 @@ def load_and_normalise_and_split_data(
     y_train_df = pd.concat([run_groups[rid][target_col] for rid in train_ids], axis=0)
 
     X_train = X_train_df.values
-    y_train = y_train_df.values
+    y_train = y_train_df.values.ravel()
 
     X_mean = np.zeros(len(feature_cols), dtype=np.float32)
     X_std  = np.ones(len(feature_cols), dtype=np.float32)
@@ -211,17 +207,16 @@ def load_and_normalise_and_split_data(
             X_mean[j] = float(vals.mean())
             X_std[j]  = float(vals.std())
 
-    y_mean = y_train.mean(axis=0).astype(np.float32)  # shape (n_targets,)
-    y_std  = y_train.std(axis=0).astype(np.float32)   # shape (n_targets,)
-    for col, mean, std in zip(feature_cols, X_mean, X_std):
-        print(f"{col}: mean={mean}, std={std}")
+    y_mean = float(y_train.mean())
+    y_std  = float(y_train.std())
+
     # ----------------------------------------------------------------------
     # 8) Normalize each run using TRAIN stats, respecting passthrough
     # ----------------------------------------------------------------------
     normalized_runs = {}
     for rid, data in run_groups.items():
         X_vals = data[feature_cols].values.astype(np.float32)
-        y_vals = data[target_col].values.astype(np.float32)
+        y_vals = data[target_col].values.astype(np.float32).ravel()
 
         X_norm = X_vals.copy()
         for j, col in enumerate(feature_cols):
